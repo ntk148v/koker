@@ -1,3 +1,3 @@
-# Kontainer
+# Koker
 
-Build a Kontainer from scratch in Golang.
+Building a Docker-like tool - `koker` - Kien's docker.
