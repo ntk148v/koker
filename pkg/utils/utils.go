@@ -10,14 +10,8 @@ import (
 
 	"github.com/rs/xid"
 	"github.com/rs/zerolog/log"
-)
 
-const (
-	KokerHomePath       = "/var/lib/koker"
-	KokerTempPath       = KokerHomePath + "/tmp"
-	KokerImagesPath     = KokerHomePath + "/images"
-	KokerContainersPath = KokerHomePath + "/containers"
-	KokerNetNsPath      = KokerHomePath + "/netns"
+	"github.com/ntk148v/koker/pkg/constants"
 )
 
 // createDir creates a directory if not exist
@@ -35,7 +29,13 @@ func createDir(dir string) error {
 
 // InitKokerDirs creates all related directories
 func InitKokerDirs() error {
-	for _, dir := range []string{KokerHomePath, KokerImagesPath, KokerNetNsPath, KokerContainersPath, KokerTempPath} {
+	dirs := []string{
+		constants.KokerHomePath, constants.KokerImagesPath,
+		constants.KokerNetNsPath, constants.KokerContainersPath,
+		constants.KokerTempPath,
+	}
+
+	for _, dir := range dirs {
 		if err := createDir(dir); err != nil {
 			return err
 		}

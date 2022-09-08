@@ -11,6 +11,7 @@ import (
 	"github.com/google/go-containerregistry/pkg/crane"
 	"github.com/rs/zerolog/log"
 
+	"github.com/ntk148v/koker/pkg/constants"
 	"github.com/ntk148v/koker/pkg/utils"
 )
 
@@ -66,7 +67,7 @@ func DownloadImage(src string) (string, error) {
 
 		imageManifest, _ := img.Manifest()
 		imageSHA = imageManifest.Config.Digest.Hex[:12]
-		tmpPath := filepath.Join(utils.KokerTempPath, imageSHA)
+		tmpPath := filepath.Join(constants.KokerTempPath, imageSHA)
 		_ = os.Mkdir(tmpPath, 0755)
 		tarball := filepath.Join(tmpPath, "package.tar")
 		defer func() {
@@ -100,7 +101,7 @@ func DownloadImage(src string) (string, error) {
 			return imageSHA, errors.New("unexpected mutiple manifestes")
 		}
 
-		imagePath := filepath.Join(utils.KokerImagesPath, imageSHA)
+		imagePath := filepath.Join(constants.KokerImagesPath, imageSHA)
 		_ = os.Mkdir(imagePath, 0755)
 		// untar the layer files.
 		for _, layer := range m[0].Layers {
@@ -113,9 +114,9 @@ func DownloadImage(src string) (string, error) {
 		}
 
 		// copy manifest file for reference later
-		utils.CopyFile(manifestJson, filepath.Join(utils.KokerImagesPath,
+		utils.CopyFile(manifestJson, filepath.Join(constants.KokerImagesPath,
 			imageSHA, "manifest.json"))
-		utils.CopyFile(configJson, filepath.Join(utils.KokerImagesPath,
+		utils.CopyFile(configJson, filepath.Join(constants.KokerImagesPath,
 			imageSHA, imageSHA+".json"))
 
 		// Store image metadata

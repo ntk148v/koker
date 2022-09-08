@@ -1,8 +1,9 @@
 package containers
 
 import (
-	"github.com/ntk148v/koker/pkg/images"
 	"github.com/rs/zerolog/log"
+
+	"github.com/ntk148v/koker/pkg/images"
 )
 
 func InitContainer(img string) error {

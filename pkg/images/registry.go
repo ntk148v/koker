@@ -7,10 +7,10 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/ntk148v/koker/pkg/utils"
+	"github.com/ntk148v/koker/pkg/constants"
 )
 
-var registryPath = filepath.Join(utils.KokerImagesPath, "registry.json")
+var registryPath = filepath.Join(constants.KokerImagesPath, "registry.json")
 
 type registry map[string]string
 
@@ -23,11 +23,11 @@ func loadRegistry() (registry, error) {
 
 	data, err := ioutil.ReadFile(registryPath)
 	if err != nil {
-		return r, fmt.Errorf("Unable to read image registry due to %v", err)
+		return r, fmt.Errorf("error reading image registry due to %v", err)
 	}
 
 	if err := json.Unmarshal(data, &r); err != nil {
-		return r, fmt.Errorf("Unable to load image registry due to %v", err)
+		return r, fmt.Errorf("error loading image registry due to %v", err)
 	}
 	return r, nil
 }
@@ -35,10 +35,10 @@ func loadRegistry() (registry, error) {
 func saveRegistry(r registry) error {
 	b, err := json.Marshal(r)
 	if err != nil {
-		return fmt.Errorf("Unable to marshal image registry due to %v", err)
+		return fmt.Errorf("error marshalling image registry due to %v", err)
 	}
 	if err = ioutil.WriteFile(registryPath, b, 0644); err != nil {
-		return fmt.Errorf("Unable to save image registry due to %v", err)
+		return fmt.Errorf("error saving image registry due to %v", err)
 	}
 	return nil
 }
