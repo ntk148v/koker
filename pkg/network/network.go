@@ -1,6 +1,7 @@
 package network
 
 import (
+	"net"
 	"path/filepath"
 
 	"github.com/rs/zerolog/log"
@@ -43,7 +44,7 @@ func SetupBridge() error {
 		return err
 	}
 
-	addr, _ := netlink.ParseAddr(constants.KokerBridgeDefaultIP)
+	addr, _ := netlink.ParseAddr(constants.KokerBridgeDefaultIP + "/16")
 	log.Debug().Str("bridge", constants.KokerBridgeName).
 		Msg("Add an IP address to bridge")
 	netlink.AddrAdd(bridge, addr)
@@ -144,11 +145,62 @@ func SetupConNetInf(conID string) error {
 		return err
 	}
 
+	log.Debug().Str("veth1", veth1Name).
+		Msg("Set network netnamespace virtual ethernet")
 	if err := netlink.LinkSetNsFd(veth1, fd); err != nil {
 		log.Error().Err(err).Str("veth1", veth1Name).
 			Msg("Unable to set network namespace for vritual ethernet")
 		return err
 	}
 
+	if err := unix.Setns(fd, unix.CLONE_NEWNET); err != nil {
+		log.Error().Err(err).Msg("Setns system call failed")
+		return err
+	}
+
+	log.Debug().Str("veth1", veth1Name).
+		Msg("Assign IP to virtual ethernet")
+	addr, _ := netlink.ParseAddr(utils.GenIPAddress() + "/16")
+	if err := netlink.AddrAdd(veth1, addr); err != nil {
+		log.Error().Err(err).Str("veth1", veth1Name).
+			Msg("Unable to assign IP to virtual ethernet")
+		return err
+	}
+
+	log.Debug().Str("veth1", veth1Name).
+		Msg("Bring up virtual ethernet")
+	if err := netlink.LinkSetUp(veth1); err != nil {
+		log.Error().Err(err).Str("veth1", veth1Name).
+			Msg("Unable to bring up virtual ethernet")
+		return err
+	}
+
+	log.Debug().Str("veth1", veth1Name).
+		Msg("Add route for virtual ethernetl")
+	route := netlink.Route{
+		Scope:     netlink.SCOPE_UNIVERSE,
+		LinkIndex: veth1.Attrs().Index,
+		Gw:        net.ParseIP(constants.KokerBridgeDefaultIP),
+		Dst:       nil,
+	}
+
+	if err := netlink.RouteAdd(&route); err != nil {
+		log.Error().Err(err).Str("veth1", veth1Name).
+			Msg("Unable to add route for virtual ethernet")
+	}
+
 	return nil
+}
+
+func SetupLocalInterface() {
+	links, _ := netlink.LinkList()
+	for _, link := range links {
+		if link.Attrs().Name == "lo" {
+			loAddr, _ := netlink.ParseAddr("127.0.0.1/32")
+			if err := netlink.AddrAdd(link, loAddr); err != nil {
+				log.Warn().Msg("Unable to configure local interface!")
+			}
+			netlink.LinkSetUp(link)
+		}
+	}
 }

@@ -3,6 +3,7 @@ package images
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -31,12 +32,12 @@ type Manifest []struct {
 	RepoTags []string `json:"RepoTags"`
 	Layers   []string `json:"Layers"`
 }
-type imageConfigDetails struct {
+type ImageConfigDetails struct {
 	Env []string `json:"Env"`
 	Cmd []string `json:"Cmd"`
 }
-type imageConfig struct {
-	Config imageConfigDetails `json:"config"`
+type ImageConfig struct {
+	Config ImageConfigDetails `json:"Config"`
 }
 
 // ParseManifest reads and unmarshals manifest.json to Manifest object
@@ -124,6 +125,7 @@ func DownloadImage(src string) (string, error) {
 		// copy manifest file for reference later
 		utils.CopyFile(manifestJson, filepath.Join(constants.KokerImagesPath,
 			imageSHA, "manifest.json"))
+		fmt.Println(configJson)
 		utils.CopyFile(configJson, filepath.Join(constants.KokerImagesPath,
 			imageSHA, imageSHA+".json"))
 

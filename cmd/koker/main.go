@@ -113,6 +113,44 @@ func main() {
 				},
 			},
 			{
+				Name:     "child",
+				HideHelp: true,
+				Flags: []cli.Flag{
+					&cli.IntFlag{
+						Name:    "memory",
+						Aliases: []string{"m"},
+						Usage:   "Memory limit in MB",
+						Value:   -1,
+					},
+					&cli.Float64Flag{
+						Name:    "cpus",
+						Aliases: []string{"c"},
+						Usage:   "Number of CPU cores to restrict to",
+						Value:   -1.0,
+					},
+					&cli.IntFlag{
+						Name:    "pids",
+						Aliases: []string{"p"},
+						Usage:   "Number of max processes to allow",
+						Value:   -1,
+					},
+				},
+				Action: func(ctx *cli.Context) error {
+					args := ctx.Args()
+					container := args.Get(0)
+					image := args.Get(1)
+					commands := args.Slice()[2:]
+
+					// Execute command
+					if err := containers.ExecuteContainerCommand(
+						container, image, commands, ctx.Int("mem"),
+						ctx.Int("pids"), ctx.Float64("cpus")); err != nil {
+						return fmt.Errorf("error executing container command: %v", err)
+					}
+					return nil
+				},
+			},
+			{
 				Name:  "rm",
 				Usage: "Remove a container",
 				Flags: []cli.Flag{

@@ -3,8 +3,9 @@ package utils
 import (
 	"archive/tar"
 	"compress/gzip"
-	"crypto/rand"
+	"fmt"
 	"io"
+	"math/rand"
 	"net"
 	"os"
 	"path/filepath"
@@ -134,4 +135,13 @@ func GenMac() (net.HardwareAddr, error) {
 	buf[0] |= 2
 	mac = append(mac, buf[0], buf[1], buf[2], buf[3], buf[4], buf[5])
 	return mac, err
+}
+
+// GenIPAddress generates ip address randomly (and dummy).
+// NOTE(kiennt26): It doesn't check this IP
+// address is used or not, as I assume there is just only 1 container
+// run at time.
+func GenIPAddress() string {
+	// Hardcode
+	return fmt.Sprintf("172.69.%d.%d", rand.Intn(254), rand.Intn(254))
 }

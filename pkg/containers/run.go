@@ -1,8 +1,10 @@
 package containers
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -64,7 +66,7 @@ func mountOverlayFS(conID, imgSHA string) error {
 }
 
 func initContainer(conID, imgSHA string, cmdArgs []string, mem, pids int, cpus float64) error {
-	log.Debug().Str("containerid", conID).
+	log.Info().Str("containerid", conID).
 		Msg("Setup network namespace")
 
 	if err := network.SetupNetNS(conID); err != nil {
@@ -73,9 +75,9 @@ func initContainer(conID, imgSHA string, cmdArgs []string, mem, pids int, cpus f
 		return err
 	}
 
-	// Setup virtual interface
-	log.Debug().Str("containerid", conID).
-		Msg("Setup virtual interface")
+	// Setup virtual interfaces
+	log.Info().Str("containerid", conID).
+		Msg("Setup virtual interfaces")
 	if err := network.SetupConNetInf(conID); err != nil {
 		log.Error().Err(err).Str("containerid", conID).
 			Msg("Unable to setup virtual interfaces")
@@ -83,8 +85,9 @@ func initContainer(conID, imgSHA string, cmdArgs []string, mem, pids int, cpus f
 	}
 
 	// Namespace
-	log.Debug().Str("containerid", conID).
-		Msg("Setup other namespaces")
+	log.Info().Str("containerid", conID).
+		Msg("Init container and execute command")
+
 	var opts []string
 	if mem > 0 {
 		opts = append(opts, "--mem="+strconv.Itoa(mem))
@@ -95,11 +98,11 @@ func initContainer(conID, imgSHA string, cmdArgs []string, mem, pids int, cpus f
 	if cpus > 0 {
 		opts = append(opts, "--cpus="+strconv.FormatFloat(cpus, 'f', 1, 64))
 	}
-	opts = append(opts, "--img="+imgSHA)
-	args := append([]string{conID}, cmdArgs...)
+	args := append([]string{conID, imgSHA}, cmdArgs...)
 	args = append(opts, args...)
-	args = append([]string{"child"}, args...)
+	args = append([]string{"container", "child"}, args...)
 	// /proc/self/exe - a special file containing an in-memory image of the current executable.
+	// In other words, we re-run ourselves, but passing childs as the first agrument.
 	cmd := exec.Command("/proc/self/exe", args...)
 	cmd.Stderr = os.Stderr
 	cmd.Stdout = os.Stdout
@@ -126,6 +129,150 @@ func initContainer(conID, imgSHA string, cmdArgs []string, mem, pids int, cpus f
 	}
 
 	return nil
+}
+
+func parseContainerCfg(imgSHA string) (images.ImageConfig, error) {
+	var imgCfg images.ImageConfig
+	imgCfgPath := filepath.Join(constants.KokerImagesPath, imgSHA, imgSHA+".json")
+	data, err := ioutil.ReadFile(imgCfgPath)
+	if err != nil {
+		log.Error().Err(err).Str("imagecfgpath", imgCfgPath).
+			Msg("Could not read image config file")
+		return imgCfg, err
+	}
+
+	if err := json.Unmarshal(data, &imgCfg); err != nil {
+		log.Error().Err(err).Str("imagecfgpath", imgCfgPath).
+			Msg("Unable to parse image config data")
+		return imgCfg, err
+	}
+	return imgCfg, err
+}
+
+// joinConNetNs
+func joinConNetNs(conID string) error {
+	nsMount := filepath.Join(constants.KokerNetNsPath, conID)
+	fd, err := unix.Open(nsMount, unix.O_RDONLY, 0)
+	if err != nil {
+		log.Error().Err(err).Msg("Unable to open file")
+		return err
+	}
+
+	if err := unix.Setns(fd, unix.CLONE_NEWNET); err != nil {
+		log.Error().Err(err).Msg("Setns system call failed")
+		return err
+	}
+	return nil
+}
+
+func copyNameserverCfg(conID string) error {
+	resolvFilePaths := []string{
+		"/var/run/systemd/resolve/resolv.conf",
+		"/etc/gockerresolv.conf",
+		"/etc/resolv.conf",
+	}
+	for _, resolvFilePath := range resolvFilePaths {
+		if _, err := os.Stat(resolvFilePath); os.IsNotExist(err) {
+			continue
+		} else {
+			return utils.CopyFile(resolvFilePath,
+				filepath.Join(constants.KokerContainersPath, conID,
+					"/mnt/etc/resolv.conf"))
+		}
+	}
+	return nil
+}
+
+// ExecuteContainerCommand
+// TODO(kiennt26): Add error logging later
+func ExecuteContainerCommand(conID, imgSHA string, cmdArgs []string, mem, pids int, cpus float64) error {
+	mntPath := filepath.Join(constants.KokerContainersPath, conID)
+	cmd := exec.Command(cmdArgs[0], cmdArgs[1:]...)
+	cmd.Stderr = os.Stderr
+	cmd.Stdout = os.Stdout
+	cmd.Stdin = os.Stdin
+
+	// Parse container config
+	log.Debug().Str("containerid", conID).
+		Msg("Parse container config")
+	imgCfg, err := parseContainerCfg(imgSHA)
+	if err != nil {
+		return err
+	}
+
+	// Set hostname
+	log.Debug().Str("containerid", conID).
+		Msg("Set hostname")
+	if err := unix.Sethostname([]byte(conID)); err != nil {
+		return err
+	}
+
+	// Join container network namespace
+	log.Debug().Str("containerid", conID).
+		Msg("Join container network namespace")
+	if err := joinConNetNs(conID); err != nil {
+		return err
+	}
+
+	// Create CGroup directories
+	log.Debug().Str("containerid", conID).
+		Msg("Create CGroup directories")
+	if err := createCGroups(conID); err != nil {
+		return err
+	}
+
+	// Configure CGroup
+	log.Debug().Str("containerid", conID).
+		Msg("Configure CGroup (memory, cpu, pids)")
+	if err := configCGroup(conID, mem, pids, cpus); err != nil {
+		return err
+	}
+
+	// Copy nameserver
+	log.Debug().Str("containerid", conID).
+		Msg("Copy nameserver")
+	if err := copyNameserverCfg(conID); err != nil {
+		return err
+	}
+
+	// Chroot
+	log.Debug().Str("containerid", conID).
+		Msg("Do chroot")
+	if err := unix.Chroot(mntPath); err != nil {
+		return err
+	}
+	// Change directory
+	if err := os.Chdir("/"); err != nil {
+		return err
+	}
+
+	// Mount filesystem
+	log.Debug().Str("containerid", conID).
+		Msg("Mount filesystem")
+	for _, dir := range []string{"/proc", "/sys", "/dev/pts"} {
+		// handle error later
+		utils.CreateDir(dir)
+	}
+	unix.Mount("proc", "/proc", "proc", 0, "")
+	unix.Mount("tmpfs", "/tmp", "tmpfs", 0, "")
+	unix.Mount("tmpfs", "/dev", "tmpfs", 0, "")
+	unix.Mount("devpts", "/dev/pts", "devpts", 0, "")
+	unix.Mount("sysfs", "/sys", "sysfs", 0, "")
+
+	// Setup local interface
+	log.Debug().Str("containerid", conID).
+		Msg("Setup local interface")
+	network.SetupLocalInterface()
+
+	defer func() {
+		unix.Unmount("/dev/pts", 0)
+		unix.Unmount("/dev", 0)
+		unix.Unmount("/sys", 0)
+		unix.Unmount("/proc", 0)
+		unix.Unmount("/tmp", 0)
+	}()
+	cmd.Env = imgCfg.Config.Env
+	return cmd.Run()
 }
 
 func unmountNetNS(conID string) {
@@ -163,6 +310,7 @@ func InitContainer(img string, cmds []string, mem, pids int, cpus float64) error
 			Msg("Cleanup, remove directories and stuffs")
 		unmountNetNS(containerID)
 		unmountConFS(containerID)
+		removeCGroup(containerID)
 		os.RemoveAll(filepath.Join(constants.KokerContainersPath, containerID))
 	}()
 
