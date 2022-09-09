@@ -3,7 +3,9 @@ package utils
 import (
 	"archive/tar"
 	"compress/gzip"
+	"crypto/rand"
 	"io"
+	"net"
 	"os"
 	"path/filepath"
 	"strings"
@@ -14,14 +16,14 @@ import (
 	"github.com/ntk148v/koker/pkg/constants"
 )
 
-// createDir creates a directory if not exist
-func createDir(dir string) error {
+// CreateDir creates a directory if not exist
+func CreateDir(dir string) error {
 	_, err := os.Stat(dir)
 	// If directory is not exist, create it
 	if os.IsNotExist(err) {
 		if err = os.MkdirAll(dir, 0755); err != nil {
 			log.Error().Str("directory", dir).Err(err).
-				Msg("Unabel to create directory")
+				Msg("Unable to create directory")
 			return err
 		}
 	}
@@ -37,7 +39,7 @@ func InitKokerDirs() error {
 	}
 
 	for _, dir := range dirs {
-		if err := createDir(dir); err != nil {
+		if err := CreateDir(dir); err != nil {
 			return err
 		}
 	}
@@ -116,4 +118,20 @@ func Extract(tarball, target string) error {
 		}
 	}
 	return nil
+}
+
+// GenMac generates MAC address
+func GenMac() (net.HardwareAddr, error) {
+	buf := make([]byte, 6)
+	var mac net.HardwareAddr
+
+	_, err := rand.Read(buf)
+	if err != nil {
+		return nil, err
+	}
+
+	// Set the local bit
+	buf[0] |= 2
+	mac = append(mac, buf[0], buf[1], buf[2], buf[3], buf[4], buf[5])
+	return mac, err
 }

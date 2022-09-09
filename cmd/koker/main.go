@@ -76,11 +76,11 @@ func main() {
 						Usage:   "Memory limit in MB",
 						Value:   -1,
 					},
-					&cli.IntFlag{
+					&cli.Float64Flag{
 						Name:    "cpus",
 						Aliases: []string{"c"},
 						Usage:   "Number of CPU cores to restrict to",
-						Value:   -1,
+						Value:   -1.0,
 					},
 					&cli.IntFlag{
 						Name:    "pids",
@@ -102,10 +102,11 @@ func main() {
 						return errors.New("missing required arguments")
 					}
 					image := args.Get(0)
-					// command := args.Get(1)
+					commands := args.Slice()[1:]
 
 					// Init container
-					if err := containers.InitContainer(image); err != nil {
+					if err := containers.InitContainer(image, commands, ctx.Int("mem"),
+						ctx.Int("pids"), ctx.Float64("cpus")); err != nil {
 						return fmt.Errorf("error initializing container: %v", err)
 					}
 					return nil

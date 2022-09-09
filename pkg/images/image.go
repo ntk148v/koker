@@ -25,7 +25,8 @@ func init() {
 	}
 }
 
-type manifest []struct {
+// Manifest represents to manifest.json
+type Manifest []struct {
 	Config   string   `json:"Config"`
 	RepoTags []string `json:"RepoTags"`
 	Layers   []string `json:"Layers"`
@@ -38,7 +39,8 @@ type imageConfig struct {
 	Config imageConfigDetails `json:"config"`
 }
 
-func parseManifest(manifestPath string, m *manifest) error {
+// ParseManifest reads and unmarshals manifest.json to Manifest object
+func ParseManifest(manifestPath string, m *Manifest) error {
 	data, err := ioutil.ReadFile(manifestPath)
 	if err != nil {
 		return err
@@ -97,8 +99,8 @@ func DownloadImage(src string) (string, error) {
 		manifestJson := filepath.Join(tmpPath, "manifest.json")
 		configJson := filepath.Join(tmpPath, imageManifest.Config.Digest.Hex+".json")
 
-		m := manifest{}
-		parseManifest(manifestJson, &m)
+		m := Manifest{}
+		ParseManifest(manifestJson, &m)
 		if len(m) == 0 || len(m[0].Layers) == 0 {
 			return imageSHA, errors.New("could not find any layers")
 		} else if len(m) > 1 {
@@ -129,6 +131,14 @@ func DownloadImage(src string) (string, error) {
 		log.Debug().Msg("Store image metadata")
 		imageRegistry.set(src, imageSHA)
 		saveRegistry(imageRegistry)
+
+		log.Debug().Str("image", src).
+			Str("imgSHA", imageSHA).
+			Msg("Download image successfully")
+	} else {
+		log.Debug().Str("image", src).
+			Str("imgSHA", imageSHA).
+			Msg("Image does exist, re-use")
 	}
 	return imageSHA, nil
 }
