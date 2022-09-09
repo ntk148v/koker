@@ -20,7 +20,8 @@ func createDir(dir string) error {
 	// If directory is not exist, create it
 	if os.IsNotExist(err) {
 		if err = os.MkdirAll(dir, 0755); err != nil {
-			log.Error().Err(err).Msgf("error creating directory %s", dir)
+			log.Error().Str("directory", dir).Err(err).
+				Msg("Unabel to create directory")
 			return err
 		}
 	}
@@ -67,7 +68,7 @@ func CopyFile(src, dst string) error {
 	return nil
 }
 
-// Extract
+// Extract untars both .tar and .tar.gz files.
 func Extract(tarball, target string) error {
 	reader, err := os.Open(tarball)
 	if err != nil {

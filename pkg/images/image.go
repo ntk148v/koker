@@ -59,7 +59,8 @@ func DownloadImage(src string) (string, error) {
 
 	imageSHA, exist := imageRegistry.get(src)
 	if !exist {
-		log.Debug().Msgf("Get metadata for %s", src)
+		log.Debug().Str("image", src).
+			Msg("Get metadata for image")
 		img, err := crane.Pull(src)
 		if err != nil {
 			return imageSHA, err
@@ -77,19 +78,22 @@ func DownloadImage(src string) (string, error) {
 		}()
 
 		// Save image as tar file
-		log.Debug().Msgf("Save image %s as tar file", src)
+		log.Debug().Str("image", src).
+			Msg("Save image as tar file")
 		if err := crane.Save(img, imageSHA, tarball); err != nil {
 			return imageSHA, err
 		}
 
 		// Untar tarball
-		log.Debug().Msgf("Extract tar file %s", tarball)
+		log.Debug().Str("tarball", tarball).
+			Msg("Extract tar file")
 		if err := utils.Extract(tarball, tmpPath); err != nil {
 			return imageSHA, err
 		}
 
 		// Process layer tarballs
-		log.Debug().Msg("Process layer tarballs")
+		log.Debug().Str("tarball", tarball).
+			Msg("Process tarball's layers")
 		manifestJson := filepath.Join(tmpPath, "manifest.json")
 		configJson := filepath.Join(tmpPath, imageManifest.Config.Digest.Hex+".json")
 
@@ -106,7 +110,9 @@ func DownloadImage(src string) (string, error) {
 		// untar the layer files.
 		for _, layer := range m[0].Layers {
 			imageLayerDir := filepath.Join(imagePath, layer[:12], "fs")
-			log.Debug().Msgf("Uncomressing layer to %s", imageLayerDir)
+			log.Debug().Str("tarball", tarball).
+				Str("layerdir", imageLayerDir).
+				Msg("Uncomressing layer to directory")
 			_ = os.MkdirAll(imageLayerDir, 0755)
 			if err := utils.Extract(filepath.Join(tmpPath, layer), imageLayerDir); err != nil {
 				return imageSHA, err

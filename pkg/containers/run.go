@@ -11,6 +11,8 @@ func InitContainer(img string) error {
 	if err != nil {
 		return err
 	}
-	log.Info().Msgf("Download image %s successfully", imgSHA)
+	log.Info().Str("image", img).
+		Str("imgSHA", imgSHA).
+		Msg("Download image successfully")
 	return nil
 }

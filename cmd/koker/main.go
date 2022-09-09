@@ -1,6 +1,8 @@
 package main
 
 import (
+	"errors"
+	"fmt"
 	"os"
 
 	"github.com/rs/zerolog"
@@ -91,20 +93,20 @@ func main() {
 					// Create and setup network bridge
 					if ok, _ := network.CheckBridgeUp(); !ok {
 						if err := network.SetupBridge(); err != nil {
-							log.Fatal().Err(err).Msg("Unable to create default bridge")
+							return fmt.Errorf("error creating default bridge: %v", err)
 						}
 					}
 
 					args := ctx.Args()
 					if !args.Present() {
-						log.Fatal().Msg("Missing required arguments")
+						return errors.New("missing required arguments")
 					}
 					image := args.Get(0)
 					// command := args.Get(1)
 
 					// Init container
 					if err := containers.InitContainer(image); err != nil {
-						log.Fatal().Err(err).Msg("Unable to init container")
+						return fmt.Errorf("error initializing container: %v", err)
 					}
 					return nil
 				},
@@ -183,6 +185,6 @@ func main() {
 	}
 
 	if err := app.Run(os.Args); err != nil {
-		log.Fatal().Err(err)
+		log.Fatal().Err(err).Msg("Something went wrong")
 	}
 }
