@@ -177,7 +177,7 @@ func copyNameserverCfg(conID string) error {
 		} else {
 			return utils.CopyFile(resolvFilePath,
 				filepath.Join(constants.KokerContainersPath, conID,
-					"/mnt/etc/resolv.conf"))
+					"/fs/mnt/etc/resolv.conf"))
 		}
 	}
 	return nil
@@ -186,7 +186,7 @@ func copyNameserverCfg(conID string) error {
 // ExecuteContainerCommand
 // TODO(kiennt26): Add error logging later
 func ExecuteContainerCommand(conID, imgSHA string, cmdArgs []string, mem, pids int, cpus float64) error {
-	mntPath := filepath.Join(constants.KokerContainersPath, conID)
+	mntPath := filepath.Join(constants.KokerContainersPath, conID, "fs/mnt")
 	cmd := exec.Command(cmdArgs[0], cmdArgs[1:]...)
 	cmd.Stderr = os.Stderr
 	cmd.Stdout = os.Stdout

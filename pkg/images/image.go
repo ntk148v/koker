@@ -3,7 +3,6 @@ package images
 import (
 	"encoding/json"
 	"errors"
-	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -37,7 +36,7 @@ type ImageConfigDetails struct {
 	Cmd []string `json:"Cmd"`
 }
 type ImageConfig struct {
-	Config ImageConfigDetails `json:"Config"`
+	Config ImageConfigDetails `json:"config"`
 }
 
 // ParseManifest reads and unmarshals manifest.json to Manifest object
@@ -98,7 +97,7 @@ func DownloadImage(src string) (string, error) {
 		log.Debug().Str("tarball", tarball).
 			Msg("Process tarball's layers")
 		manifestJson := filepath.Join(tmpPath, "manifest.json")
-		configJson := filepath.Join(tmpPath, imageManifest.Config.Digest.Hex+".json")
+		configJson := filepath.Join(tmpPath, imageManifest.Config.Digest.String())
 
 		m := Manifest{}
 		ParseManifest(manifestJson, &m)
@@ -123,11 +122,14 @@ func DownloadImage(src string) (string, error) {
 		}
 
 		// copy manifest file for reference later
-		utils.CopyFile(manifestJson, filepath.Join(constants.KokerImagesPath,
-			imageSHA, "manifest.json"))
-		fmt.Println(configJson)
-		utils.CopyFile(configJson, filepath.Join(constants.KokerImagesPath,
-			imageSHA, imageSHA+".json"))
+		if err := utils.CopyFile(manifestJson, filepath.Join(constants.KokerImagesPath,
+			imageSHA, "manifest.json")); err != nil {
+			return imageSHA, err
+		}
+		if err := utils.CopyFile(configJson, filepath.Join(constants.KokerImagesPath,
+			imageSHA, imageSHA+".json")); err != nil {
+			return imageSHA, err
+		}
 
 		// Store image metadata
 		log.Debug().Msg("Store image metadata")
