@@ -55,7 +55,7 @@ func mountOverlayFS(conID, imgSHA string) error {
 		srcLayers = append([]string{filepath.Join(imageBasePath, layer[:12], "fs")}, srcLayers...)
 	}
 
-	conHome := filepath.Join(constants.KokerContainersPath, conID)
+	conHome := filepath.Join(constants.KokerContainersPath, conID, "fs")
 	mntOpts := fmt.Sprintf("lowerdir=%s,upperdir=%s,workdir=%s",
 		strings.Join(srcLayers, ":"),
 		filepath.Join(conHome, "upperdir"),
@@ -64,29 +64,21 @@ func mountOverlayFS(conID, imgSHA string) error {
 }
 
 func initContainer(conID, imgSHA string, cmdArgs []string, mem, pids int, cpus float64) error {
-	// /proc/self/exe - a special file containing an in-memory image of the current executable.
 	log.Debug().Str("containerid", conID).
 		Msg("Setup network namespace")
-	cmd := &exec.Cmd{
-		Path:   "/proc/self/exe",
-		Args:   []string{"/proc/self/exe", "setup-netns", conID}, // Setup network namespace
-		Stdout: os.Stdout,
-		Stderr: os.Stderr,
-	}
-	if err := cmd.Run(); err != nil {
+
+	if err := network.SetupNetNS(conID); err != nil {
+		log.Error().Err(err).Str("containerid", conID).
+			Msg("Unable to setup network namespace")
 		return err
 	}
 
 	// Setup virtual interface
 	log.Debug().Str("containerid", conID).
 		Msg("Setup virtual interface")
-	cmd = &exec.Cmd{
-		Path:   "/proc/self/exe",
-		Args:   []string{"/proc/self/exe", "setup-veth", conID},
-		Stdout: os.Stdout,
-		Stderr: os.Stderr,
-	}
-	if err := cmd.Run(); err != nil {
+	if err := network.SetupConNetInf(conID); err != nil {
+		log.Error().Err(err).Str("containerid", conID).
+			Msg("Unable to setup virtual interfaces")
 		return err
 	}
 
@@ -107,7 +99,8 @@ func initContainer(conID, imgSHA string, cmdArgs []string, mem, pids int, cpus f
 	args := append([]string{conID}, cmdArgs...)
 	args = append(opts, args...)
 	args = append([]string{"child"}, args...)
-	cmd = exec.Command("/proc/self/exe", args...)
+	// /proc/self/exe - a special file containing an in-memory image of the current executable.
+	cmd := exec.Command("/proc/self/exe", args...)
 	cmd.Stderr = os.Stderr
 	cmd.Stdout = os.Stdout
 	cmd.Stdin = os.Stdin
@@ -126,21 +119,33 @@ func initContainer(conID, imgSHA string, cmdArgs []string, mem, pids int, cpus f
 			unix.CLONE_NEWIPC,
 	}
 
-	return cmd.Run()
+	if err := cmd.Run(); err != nil {
+		log.Error().Err(err).Str("containerid", conID).
+			Msg("Unable to create container")
+		return err
+	}
+
+	return nil
 }
 
 func unmountNetNS(conID string) {
 	netNSPath := filepath.Join(constants.KokerNetNsPath, conID)
+	if _, err := os.Stat(netNSPath); os.IsNotExist(err) {
+		return
+	}
 	if err := unix.Unmount(netNSPath, 0); err != nil {
-		log.Error().Err(err).Str("containerid", conID).
+		log.Warn().Err(err).Str("containerid", conID).
 			Str("netns", netNSPath).Msg("Unable to unmount network namespace")
 	}
 }
 
 func unmountConFS(conID string) {
 	mountedPath := filepath.Join(constants.KokerContainersPath, conID, "fs", "mnt")
+	if _, err := os.Stat(mountedPath); os.IsNotExist(err) {
+		return
+	}
 	if err := unix.Unmount(mountedPath, 0); err != nil {
-		log.Error().Err(err).Str("containerid", conID).
+		log.Warn().Err(err).Str("containerid", conID).
 			Str("mounted", mountedPath).Msg("Unable to unmount container filesystem")
 	}
 }
@@ -151,6 +156,15 @@ func InitContainer(img string, cmds []string, mem, pids int, cpus float64) error
 	if err != nil {
 		return err
 	}
+
+	defer func() {
+		// Clean up
+		log.Debug().Str("containerid", containerID).
+			Msg("Cleanup, remove directories and stuffs")
+		unmountNetNS(containerID)
+		unmountConFS(containerID)
+		os.RemoveAll(filepath.Join(constants.KokerContainersPath, containerID))
+	}()
 
 	// Create container's directories
 	log.Debug().Str("containerid", containerID).
@@ -188,14 +202,7 @@ func InitContainer(img string, cmds []string, mem, pids int, cpus float64) error
 			Msg("Unable to create a container")
 		return err
 	}
-	defer func() {
-		// Clean up
-		log.Debug().Str("containerid", containerID).
-			Msg("Cleanup, remove directories and stuffs")
-		unmountNetNS(containerID)
-		unmountConFS(containerID)
-		os.RemoveAll(filepath.Join(constants.KokerContainersPath, containerID))
-	}()
+
 	log.Info().Str("containerid", containerID).
 		Msg("Container did a good job, bye bye")
 

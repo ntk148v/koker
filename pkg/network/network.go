@@ -1,8 +1,11 @@
 package network
 
 import (
+	"path/filepath"
+
 	"github.com/rs/zerolog/log"
 	"github.com/vishvananda/netlink"
+	"golang.org/x/sys/unix"
 
 	"github.com/ntk148v/koker/pkg/constants"
 	"github.com/ntk148v/koker/pkg/utils"
@@ -85,6 +88,67 @@ func SetupVirtEth(conID string) error {
 		Msg("Set default bridge as the master of new virtual ethernet")
 	koker0, _ := netlink.LinkByName(constants.KokerBridgeName)
 	netlink.LinkSetMaster(veth0, koker0)
+
+	return nil
+}
+
+// SetupNetNS creates new network namespace for input container
+func SetupNetNS(conID string) error {
+	_ = utils.CreateDir(constants.KokerNetNsPath)
+	nsMount := filepath.Join(constants.KokerNetNsPath, conID)
+	if _, err := unix.Open(nsMount, unix.O_RDONLY|unix.O_CREAT|unix.O_EXCL, 0644); err != nil {
+		log.Error().Err(err).Str("netnsmount", nsMount).
+			Msg("Unable to open bind mount file")
+		return err
+	}
+
+	fd, err := unix.Open("/proc/self/ns/net", unix.O_RDONLY, 0)
+	defer unix.Close(fd)
+	if err != nil {
+		log.Error().Err(err).Msg("Unable to open file")
+		return err
+	}
+
+	if err := unix.Unshare(unix.CLONE_NEWNET); err != nil {
+		log.Error().Err(err).Msg("Unshare system call failed")
+		return err
+	}
+	if err := unix.Mount("/proc/self/ns/net", nsMount, "bind", unix.MS_BIND, ""); err != nil {
+		log.Error().Err(err).Msg("Mount system call failed")
+		return err
+	}
+	if err := unix.Setns(fd, unix.CLONE_NEWNET); err != nil {
+		log.Error().Err(err).Msg("Setns system call failed")
+		return err
+	}
+	return nil
+}
+
+// SetupConNetInf setups container network inteface
+func SetupConNetInf(conID string) error {
+	nsMount := filepath.Join(constants.KokerNetNsPath, conID)
+
+	fd, err := unix.Open(nsMount, unix.O_RDONLY, 0)
+	defer unix.Close(fd)
+	if err != nil {
+		log.Error().Err(err).Msg("Unable to open")
+		return err
+	}
+
+	// Set veth1 of new container to the new network namespace
+	veth1Name := constants.KokerVirtual1Pfx + conID[:6]
+	veth1, err := netlink.LinkByName(veth1Name)
+	if err != nil {
+		log.Error().Err(err).Str("veth1", veth1Name).
+			Msg("Unable to fetch virtual ethernet")
+		return err
+	}
+
+	if err := netlink.LinkSetNsFd(veth1, fd); err != nil {
+		log.Error().Err(err).Str("veth1", veth1Name).
+			Msg("Unable to set network namespace for vritual ethernet")
+		return err
+	}
 
 	return nil
 }
