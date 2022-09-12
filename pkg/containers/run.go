@@ -1,16 +1,15 @@
 package containers
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
 
+	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/rs/zerolog/log"
 	"golang.org/x/sys/unix"
 
@@ -131,22 +130,17 @@ func initContainer(conID, imgSHA string, cmdArgs []string, mem, pids int, cpus f
 	return nil
 }
 
-func parseContainerCfg(imgSHA string) (images.ImageConfig, error) {
-	var imgCfg images.ImageConfig
-	imgCfgPath := filepath.Join(constants.KokerImagesPath, imgSHA, imgSHA+".json")
-	data, err := ioutil.ReadFile(imgCfgPath)
+func parseContainerCfg(conID string) (v1.Config, error) {
+	var conCfg v1.Config
+	conCfgPath := filepath.Join(constants.KokerContainersPath, conID, "config.json")
+	f, err := os.Open(conCfgPath)
+	defer f.Close()
 	if err != nil {
-		log.Error().Err(err).Str("imagecfgpath", imgCfgPath).
-			Msg("Could not read image config file")
-		return imgCfg, err
+		return conCfg, err
 	}
-
-	if err := json.Unmarshal(data, &imgCfg); err != nil {
-		log.Error().Err(err).Str("imagecfgpath", imgCfgPath).
-			Msg("Unable to parse image config data")
-		return imgCfg, err
-	}
-	return imgCfg, err
+	cfg, err := v1.ParseConfigFile(f)
+	conCfg = *cfg.Config.DeepCopy()
+	return conCfg, nil
 }
 
 // joinConNetNs
@@ -187,18 +181,29 @@ func copyNameserverCfg(conID string) error {
 // TODO(kiennt26): Add error logging later
 func ExecuteContainerCommand(conID, imgSHA string, cmdArgs []string, mem, pids int, cpus float64) error {
 	mntPath := filepath.Join(constants.KokerContainersPath, conID, "fs/mnt")
-	cmd := exec.Command(cmdArgs[0], cmdArgs[1:]...)
-	cmd.Stderr = os.Stderr
-	cmd.Stdout = os.Stdout
-	cmd.Stdin = os.Stdin
 
 	// Parse container config
 	log.Debug().Str("containerid", conID).
 		Msg("Parse container config")
-	imgCfg, err := parseContainerCfg(imgSHA)
+	conCfg, err := parseContainerCfg(conID)
 	if err != nil {
 		return err
 	}
+
+	// Construct commands
+	var cmd *exec.Cmd
+
+	if len(cmdArgs) < 1 {
+		if len(conCfg.Entrypoint) > 0 {
+			cmdArgs = append(cmdArgs, conCfg.Entrypoint...)
+		}
+		cmdArgs = append(cmdArgs, conCfg.Cmd...)
+	}
+
+	cmd = exec.Command(cmdArgs[0], cmdArgs[1:]...)
+	cmd.Stderr = os.Stderr
+	cmd.Stdout = os.Stdout
+	cmd.Stdin = os.Stdin
 
 	// Set hostname
 	log.Debug().Str("containerid", conID).
@@ -271,7 +276,7 @@ func ExecuteContainerCommand(conID, imgSHA string, cmdArgs []string, mem, pids i
 		unix.Unmount("/proc", 0)
 		unix.Unmount("/tmp", 0)
 	}()
-	cmd.Env = imgCfg.Config.Env
+	cmd.Env = conCfg.Env
 	return cmd.Run()
 }
 
@@ -330,6 +335,16 @@ func InitContainer(img string, cmds []string, mem, pids int, cpus float64) error
 	if err := mountOverlayFS(containerID, imageSHA); err != nil {
 		log.Error().Err(err).Str("containerid", containerID).
 			Msg("Unable to mount overlay filesystem")
+		return err
+	}
+
+	// Copy image config
+	log.Debug().Str("containerid", containerID).
+		Str("imageSHA", imageSHA).
+		Msg("Generate container config from image config")
+	imgCfgPath := filepath.Join(constants.KokerImagesPath, imageSHA, imageSHA+".json")
+	conCfgPath := filepath.Join(constants.KokerContainersPath, containerID, "config.json")
+	if err := utils.CopyFile(imgCfgPath, conCfgPath); err != nil {
 		return err
 	}
 

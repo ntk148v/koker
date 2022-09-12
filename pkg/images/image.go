@@ -31,13 +31,6 @@ type Manifest []struct {
 	RepoTags []string `json:"RepoTags"`
 	Layers   []string `json:"Layers"`
 }
-type ImageConfigDetails struct {
-	Env []string `json:"Env"`
-	Cmd []string `json:"Cmd"`
-}
-type ImageConfig struct {
-	Config ImageConfigDetails `json:"config"`
-}
 
 // ParseManifest reads and unmarshals manifest.json to Manifest object
 func ParseManifest(manifestPath string, m *Manifest) error {

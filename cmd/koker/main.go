@@ -102,7 +102,11 @@ func main() {
 						return errors.New("missing required arguments")
 					}
 					image := args.Get(0)
-					commands := args.Slice()[1:]
+
+					var commands []string
+					if len(args.Slice()) >= 2 {
+						commands = args.Slice()[1:]
+					}
 
 					// Init container
 					if err := containers.InitContainer(image, commands, ctx.Int("mem"),
@@ -139,7 +143,11 @@ func main() {
 					args := ctx.Args()
 					container := args.Get(0)
 					image := args.Get(1)
-					commands := args.Slice()[2:]
+
+					var commands []string
+					if len(args.Slice()) >= 3 {
+						commands = args.Slice()[2:]
+					}
 
 					// Execute command
 					if err := containers.ExecuteContainerCommand(
