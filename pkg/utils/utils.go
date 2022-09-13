@@ -9,7 +9,6 @@ import (
 	"net"
 	"os"
 	"path/filepath"
-	"strings"
 
 	"github.com/rs/xid"
 	"github.com/rs/zerolog/log"
@@ -72,16 +71,10 @@ func CopyFile(src, dst string) error {
 }
 
 // Extract untars both .tar and .tar.gz files.
-func Extract(tarball, target string) error {
-	reader, err := os.Open(tarball)
-	if err != nil {
-		return err
-	}
-	defer reader.Close()
-
+func Extract(reader io.Reader, target string, gz bool) error {
 	var tarReader *tar.Reader
-	// Handle special case
-	if strings.HasSuffix(tarball, "gz") {
+
+	if gz {
 		zipReader, err := gzip.NewReader(reader)
 		if err != nil {
 			return err

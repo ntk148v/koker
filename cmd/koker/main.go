@@ -10,6 +10,7 @@ import (
 	"github.com/urfave/cli/v2"
 
 	"github.com/ntk148v/koker/pkg/containers"
+	"github.com/ntk148v/koker/pkg/images"
 	"github.com/ntk148v/koker/pkg/network"
 	"github.com/ntk148v/koker/pkg/utils"
 )
@@ -32,6 +33,13 @@ func main() {
 	if err := utils.InitKokerDirs(); err != nil {
 		log.Fatal().Err(err).Msg("Unable to create requisite directories")
 	}
+
+	// Load image registry
+	if err := images.LoadRegistry(); err != nil {
+		log.Fatal().Err(err).Msg("Unable to load image registry")
+	}
+
+	defer images.SaveRegistry()
 
 	app := &cli.App{
 		Name:    "koker",
