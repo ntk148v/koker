@@ -17,7 +17,7 @@ var registryPath = filepath.Join(constants.KokerImagesPath, "registry.json")
 
 var lock = &sync.Mutex{}
 
-var imgReg *registry
+var imgReg registry
 
 // LoadRegistry creats image registry singleton instance from file
 func LoadRegistry() error {
@@ -26,7 +26,7 @@ func LoadRegistry() error {
 		defer lock.Unlock()
 		if _, err := os.Stat(registryPath); os.IsNotExist(err) {
 			ioutil.WriteFile(registryPath, []byte("{}"), 0644)
-			imgReg = &registry{}
+			imgReg = registry{}
 			return nil
 		}
 

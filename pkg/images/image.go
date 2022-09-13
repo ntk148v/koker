@@ -6,6 +6,7 @@ import (
 	"github.com/google/go-containerregistry/pkg/crane"
 	"github.com/google/go-containerregistry/pkg/name"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
+	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 
 	"github.com/ntk148v/koker/pkg/constants"
@@ -18,11 +19,12 @@ type Image struct {
 	Registry string
 	Name     string
 	Tag      string
+	log      zerolog.Logger
 }
 
 // NewImage pulls image, constructs and returns a new Image
 func NewImage(src string) (*Image, error) {
-	log.Info().Str("src", src).Msg("Construct new Image instace")
+	log.Info().Str("src", src).Msg("Construct new Image instance")
 	tag, err := name.NewTag(src)
 	if err != nil {
 		return nil, err
@@ -45,12 +47,13 @@ func NewImage(src string) (*Image, error) {
 		Registry: tag.RegistryStr(),
 		Name:     tag.Name(),
 		Tag:      tag.TagStr(),
+		log:      log.With().Str("image", src).Logger(),
 	}, nil
 }
 
 // Download downloads image's layers
 func (i *Image) Download() error {
-	log.Info().Str("name", i.Name).Str("tag", i.Tag).Msg("Download image's layers")
+	i.log.Info().Str("registry", i.Registry).Msg("Download image from registry")
 	layers, err := i.Layers()
 	if err != nil {
 		return err

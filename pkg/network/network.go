@@ -111,8 +111,8 @@ func LinkAddGateway(linkName, gatewayIP string) error {
 	return netlink.RouteAdd(newRoute)
 }
 
-// LinkAddrAdd adds an IP address to the link device
-func LinkAddrAdd(linkName, ip string) error {
+// LinkAddAddr adds an IP address to the link device
+func LinkAddAddr(linkName, ip string) error {
 	log.Info().Str("link", linkName).Str("ip", ip).
 		Msg("Add IP address to the ip device")
 	link, err := netlink.LinkByName(linkName)
@@ -138,6 +138,8 @@ func LinkSetup(linkName string) error {
 
 // LinkRename sets the name of the link device
 func LinkRename(old, new string) error {
+	log.Info().Str("oldname", old).Str("newname", new).
+		Msg("Change the name of the link device")
 	link, err := netlink.LinkByName(old)
 	if err != nil {
 		return err
@@ -147,6 +149,7 @@ func LinkRename(old, new string) error {
 
 // IPExists checks IP is used or not
 func IPExists(ip net.IP) (bool, error) {
+	log.Debug().Str("ip", ip.String()).Msg("Check IP exists")
 	linkList, err := netlink.AddrList(nil, 0)
 	if err != nil {
 		return false, err

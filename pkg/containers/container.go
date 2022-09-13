@@ -1,9 +1,12 @@
 package containers
 
 import (
+	"fmt"
 	"io/ioutil"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"strconv"
 	"syscall"
 
 	v1 "github.com/google/go-containerregistry/pkg/v1"
@@ -14,32 +17,136 @@ import (
 	"github.com/ntk148v/koker/pkg/constants"
 	"github.com/ntk148v/koker/pkg/filesystem"
 	"github.com/ntk148v/koker/pkg/images"
+	"github.com/ntk148v/koker/pkg/network"
 	"github.com/ntk148v/koker/pkg/utils"
 )
 
 type Container struct {
-	Config    *v1.Config
-	ID        string
-	RootFS    string
-	Pids      []int
-	log       zerolog.Logger
-	unmounter filesystem.Unmounter
-	cg        *cgroups
-	mem       int
-	swap      int
-	pids      int
-	cpus      float64
+	Config *v1.Config
+	ID     string
+	RootFS string
+	Pids   []int
+	log    zerolog.Logger
+	cg     *cgroups
 }
 
 // NewContainer returns a new Container instance with random digest
-func NewContainer() *Container {
-	id := utils.GenUID()
+func NewContainer(id string) *Container {
 	return &Container{
 		Config: new(v1.Config),
+		RootFS: filepath.Join(constants.KokerContainersPath, id, "mnt"),
 		ID:     id,
 		log:    log.With().Str("container", id).Logger(),
 		cg:     newCGroup(filepath.Join(constants.KokerApp, id)),
 	}
+}
+
+func (c *Container) Run(src string, cmds []string, mem, swap, pids int, cpus float64) error {
+	// Setup network
+	delNet, err := c.SetupNetwork(constants.KokerBridgeName)
+	if err != nil {
+		return errors.Wrap(err, "unable to setup network")
+	}
+	defer delNet()
+
+	// Get image
+	img, err := images.NewImage(src)
+	if err != nil {
+		return errors.Wrap(err, "unable to get image")
+	}
+	// Check image exist
+	if _, exist := images.GetImage(img.ID); !exist {
+		if err := img.Download(); err != nil {
+			return errors.Wrap(err, "unable to download image's layers")
+		}
+	}
+
+	// Mount overlayfs
+	unmount, err := c.MountOverlayFS(img)
+	if err != nil {
+		return errors.Wrap(err, "unable to mount overlayfs")
+	}
+	defer unmount()
+
+	// Format child options
+	var opts []string
+	if mem > 0 {
+		opts = append(opts, "--mem="+strconv.Itoa(mem))
+	}
+	if pids > 0 {
+		opts = append(opts, "--pids="+strconv.Itoa(pids))
+	}
+	if cpus > 0 {
+		opts = append(opts, "--cpus="+strconv.FormatFloat(cpus, 'f', 1, 64))
+	}
+	args := append([]string{c.ID, img.ID}, cmds...)
+	args = append(opts, args...)
+	args = append([]string{"container", "child"}, args...)
+	// /proc/self/exe - a special file containing an in-memory image of the current executable.
+	// In other words, we re-run ourselves, but passing childs as the first agrument.
+	cmd := exec.Command("/proc/self/exe", args...)
+	cmd.Stderr = os.Stderr
+	cmd.Stdout = os.Stdout
+	cmd.Stdin = os.Stdin
+
+	return cmd.Run()
+}
+
+func (c *Container) ExecuteCommand(imgSHA string, cmdArgs []string, mem, swap, pids int, cpus float64) error {
+	c.SetHostname()
+	// Set network
+	unset, err := c.SetNetworkNamespace()
+	if err != nil {
+		return errors.Wrap(err, "unable to set network namespace")
+	}
+	defer unset()
+
+	// Setup cgroups
+	if err := c.SetLimit(mem, swap, pids, cpus); err != nil {
+		return errors.Wrap(err, "unable to set container's limit")
+	}
+
+	// Change root
+	// calls chroot syscall for the given root filesystem
+	if err := syscall.Chroot(c.RootFS); err != nil {
+		return errors.Wrapf(err, "unable to change root to %s", c.RootFS)
+	}
+	// change working directory into workdir
+	if c.Config.WorkingDir == "" {
+		c.Config.WorkingDir = "/"
+	}
+	if err := os.Chdir(c.Config.WorkingDir); err != nil {
+		return errors.Wrapf(err, "unable to change working directory to %s",
+			c.Config.WorkingDir)
+	}
+
+	// Mount necessaries
+	mountPoints := []filesystem.MountOption{
+		{Source: "proc", Target: "proc", Type: "proc"},
+		{Source: "sysfs", Target: "sys", Type: "sysfs"},
+	}
+	unmount, err := filesystem.Mount(mountPoints...)
+	if err != nil {
+		return err
+	}
+	defer unmount()
+
+	var cmd *exec.Cmd
+
+	if len(cmdArgs) < 1 {
+		if len(c.Config.Entrypoint) > 0 {
+			cmdArgs = append(cmdArgs, c.Config.Entrypoint...)
+		}
+		cmdArgs = append(cmdArgs, c.Config.Cmd...)
+	}
+
+	cmd = exec.Command(cmdArgs[0], cmdArgs[1:]...)
+	cmd.Stderr = os.Stderr
+	cmd.Stdout = os.Stdout
+	cmd.Stdin = os.Stdin
+	cmd.Env = c.Config.Env
+
+	return cmd.Run()
 }
 
 func (c *Container) SetLimit(mem, swap, pids int, cpus float64) error {
@@ -90,12 +197,10 @@ func (c *Container) MountOverlayFS(img *images.Image) (filesystem.Unmounter, err
 	imgSrc := img.Name + ":" + img.Tag
 	c.log.Info().Str("image", imgSrc).
 		Msg("Mount filesystem for container from an image")
-	target := filepath.Join(constants.KokerContainersPath, c.ID, "mnt")
-	if err := os.MkdirAll(target, 0700); err != nil {
-		return nil, errors.Wrapf(err, "can't create %s directory", target)
+	if err := os.MkdirAll(c.RootFS, 0700); err != nil {
+		return nil, errors.Wrapf(err, "can't create %s directory", c.RootFS)
 	}
 
-	c.RootFS = target
 	imgLayers, err := img.Layers()
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to get image layers")
@@ -108,31 +213,94 @@ func (c *Container) MountOverlayFS(img *images.Image) (filesystem.Unmounter, err
 		}
 		layers = append(layers, filepath.Join(constants.KokerImageLayersPath, digest.Hex))
 	}
-	unmounter, err := filesystem.OverlayMount(target, layers, false)
+	unmounter, err := filesystem.OverlayMount(c.RootFS, layers, false)
 	if err != nil {
 		return unmounter, err
 	}
 
-	return unmounter, c.loadConfig(img)
+	return unmounter, c.copyImageConfig(img)
 }
 
-func (c *Container) loadConfig(img *images.Image) error {
-	imgSrc := img.Name + ":" + img.Tag
-	c.log.Info().Str("image", imgSrc).Msg("Load container config from image config")
-	c.log.Debug().Str("image", imgSrc).Msg("Copy container config from image config")
+func (c *Container) copyImageConfig(img *images.Image) error {
+	c.log.Debug().Str("image", img.Name+":"+img.Tag).Msg("Copy container config from image config")
+	conCfg := filepath.Join(constants.KokerContainersPath, c.ID, "config.json")
+	data, err := img.RawConfigFile()
+	if err != nil {
+		return err
+	}
+
+	return ioutil.WriteFile(conCfg, data, 0655)
+}
+
+func (c *Container) LoadConfig() error {
+	c.log.Info().Msg("Load container config from file")
 	conCfg := filepath.Join(constants.KokerContainersPath, c.ID, "config.json")
 
-	// Load config
-	imgCfg, err := img.ConfigFile()
+	file, err := os.Open(conCfg)
 	if err != nil {
-		return errors.Wrap(err, "unable to load image's config file")
+		return err
 	}
-	c.Config = imgCfg.Config.DeepCopy()
+	defer file.Close()
+	configFile, err := v1.ParseConfigFile(file)
+	if err != nil {
+		return err
+	}
+	c.Config = configFile.Config.DeepCopy()
+	return nil
+}
 
-	// Save to file
-	raw, err := img.RawConfigFile()
-	if err != nil {
-		return errors.Wrap(err, "unable to get image's raw config")
+// SetupNetwork configures network for the container
+func (c *Container) SetupNetwork(bridge string) (filesystem.Unmounter, error) {
+	c.log.Info().Msg("Setup network for container")
+	nsMountTarget := filepath.Join(constants.KokerNetNsPath, c.ID)
+	vethName := fmt.Sprintf("%s%.7s", constants.KokerVirtual0Pfx, c.ID)
+	peerName := fmt.Sprintf("%s%.7s", constants.KokerVirtual1Pfx, c.ID)
+
+	if err := network.SetupVirtualEthernet(vethName, peerName); err != nil {
+		return nil, err
 	}
-	return ioutil.WriteFile(conCfg, raw, 0655)
+
+	if err := network.LinkSetMaster(vethName, constants.KokerBridgeName); err != nil {
+		return nil, err
+	}
+
+	unmount, err := network.MountNetNS(nsMountTarget)
+	if err != nil {
+		return unmount, err
+	}
+
+	if err := network.LinkSetNSByFile(nsMountTarget, peerName); err != nil {
+		return unmount, err
+	}
+
+	// Change current network namespace to setup the veth
+	unset, err := network.SetNetNSByFile(nsMountTarget)
+	if err != nil {
+		return unmount, err
+	}
+	defer unset()
+
+	ctrEthIPAddr := utils.GenIPAddress()
+	if err := network.LinkRename(peerName, constants.KokerCtrEthName); err != nil {
+		return unmount, err
+	}
+	if err := network.LinkAddAddr(constants.KokerCtrEthName, ctrEthIPAddr); err != nil {
+		return unmount, err
+	}
+	if err := network.LinkSetup(constants.KokerCtrEthName); err != nil {
+		return unmount, err
+	}
+	if err := network.LinkAddGateway(constants.KokerCtrEthName, constants.KokerBridgeDefaultIP); err != nil {
+		return unmount, err
+	}
+	if err := network.LinkSetup("lo"); err != nil {
+		return unmount, err
+	}
+
+	return unmount, nil
+}
+
+func (c *Container) SetNetworkNamespace() (network.Unsetter, error) {
+	netns := filepath.Join(constants.KokerNetNsPath, c.ID)
+	return network.SetNetNSByFile(netns)
 }

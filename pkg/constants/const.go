@@ -12,6 +12,7 @@ const (
 	KokerBridgeDefaultIP = "172.69.0.1"
 	KokerVirtual0Pfx     = "veth0_"
 	KokerVirtual1Pfx     = "veth1_"
+	KokerCtrEthName      = "enp0s17"
 
 	// CGroup
 	CGroupPath           = "/sys/fs/cgroup"
