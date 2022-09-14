@@ -12,7 +12,7 @@ import (
 // To keep things simple, assign ip 172.69.0.1 to it (yeah, I fixed it!)
 // which is from the range of IPs which will also use for the containers
 func SetupBridge(name, ip string) error {
-	log.Info().Str("bridge", name).Msg("Setup default bridge")
+	log.Debug().Str("bridge", name).Msg("Setup default bridge")
 
 	// Create bridge if does not exist
 	log.Debug().Str("bridge", name).Msg("Create default bridge")
@@ -47,7 +47,7 @@ func SetupBridge(name, ip string) error {
 
 // CheckBridgeUp check whether the bridge is up
 func CheckBridgeUp(name string) (bool, error) {
-	log.Info().Str("bridge", name).
+	log.Debug().Str("bridge", name).
 		Msg("Check default bridge is up or not")
 	links, err := netlink.LinkList()
 	if err == nil {
@@ -63,7 +63,7 @@ func CheckBridgeUp(name string) (bool, error) {
 
 // SetupVirtualEthernet creates and configures a virtual ethernet on host
 func SetupVirtualEthernet(name, peer string) error {
-	log.Info().Str("virt", name).Str("peer", peer).Msg("Setup virtual ethernet")
+	log.Debug().Str("virt", name).Str("peer", peer).Msg("Setup virtual ethernet")
 	linkAttrs := netlink.NewLinkAttrs()
 	linkAttrs.Name = name
 	vth := &netlink.Veth{
@@ -80,7 +80,7 @@ func SetupVirtualEthernet(name, peer string) error {
 
 // LinkSetMaster sets the master of the link device
 func LinkSetMaster(linkName, masterName string) error {
-	log.Info().Str("link", linkName).Str("master", masterName).
+	log.Debug().Str("link", linkName).Str("master", masterName).
 		Msg("Set the master of the link device")
 	link, err := netlink.LinkByName(linkName)
 	if err != nil {
@@ -96,7 +96,7 @@ func LinkSetMaster(linkName, masterName string) error {
 // LinkAddGateway adds route for the system
 // set gateway for the link device
 func LinkAddGateway(linkName, gatewayIP string) error {
-	log.Info().Str("link", linkName).Str("gateway", gatewayIP).
+	log.Debug().Str("link", linkName).Str("gateway", gatewayIP).
 		Msg("Set gateway for the link device")
 	link, err := netlink.LinkByName(linkName)
 	if err != nil {
@@ -113,7 +113,7 @@ func LinkAddGateway(linkName, gatewayIP string) error {
 
 // LinkAddAddr adds an IP address to the link device
 func LinkAddAddr(linkName, ip string) error {
-	log.Info().Str("link", linkName).Str("ip", ip).
+	log.Debug().Str("link", linkName).Str("ip", ip).
 		Msg("Add IP address to the ip device")
 	link, err := netlink.LinkByName(linkName)
 	if err != nil {
@@ -128,7 +128,7 @@ func LinkAddAddr(linkName, ip string) error {
 
 // LinkSetup finds and enables the link device
 func LinkSetup(linkName string) error {
-	log.Info().Str("link", linkName).Msg("Enable the link device")
+	log.Debug().Str("link", linkName).Msg("Enable the link device")
 	link, err := netlink.LinkByName(linkName)
 	if err != nil {
 		return err
@@ -138,7 +138,7 @@ func LinkSetup(linkName string) error {
 
 // LinkRename sets the name of the link device
 func LinkRename(old, new string) error {
-	log.Info().Str("oldname", old).Str("newname", new).
+	log.Debug().Str("oldname", old).Str("newname", new).
 		Msg("Change the name of the link device")
 	link, err := netlink.LinkByName(old)
 	if err != nil {

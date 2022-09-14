@@ -17,7 +17,7 @@ type Unsetter func() error
 // MountNetNS creates and mounts a new network namespace, then return a
 // function to unmount
 func MountNetNS(nsTarget string) (filesystem.Unmounter, error) {
-	log.Info().Str("netns", nsTarget).Msg("Mount new network namespace")
+	log.Debug().Str("netns", nsTarget).Msg("Mount new network namespace")
 	_, err := os.OpenFile(nsTarget, syscall.O_RDONLY|syscall.O_CREAT|syscall.O_EXCL, 0644)
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to create target file")
@@ -56,7 +56,7 @@ func MountNetNS(nsTarget string) (filesystem.Unmounter, error) {
 }
 
 func SetNetNSByFile(filename string) (Unsetter, error) {
-	log.Info().Str("netns", filename).Msg("Set network namespace by file")
+	log.Debug().Str("netns", filename).Msg("Set network namespace by file")
 	currentNS, err := os.OpenFile("/proc/self/ns/net", os.O_RDONLY, 0)
 	unsetFunc := func() error {
 		defer currentNS.Close()
@@ -79,7 +79,7 @@ func SetNetNSByFile(filename string) (Unsetter, error) {
 
 // LinkSetNSByFile puts link device into a new network namespace
 func LinkSetNSByFile(filename, linkName string) error {
-	log.Info().Str("netns", filename).Str("link", linkName).
+	log.Debug().Str("netns", filename).Str("link", linkName).
 		Msg("Put link device into a new network namespace")
 	netnsFile, err := os.OpenFile(filename, syscall.O_RDONLY, 0)
 	if err != nil {
