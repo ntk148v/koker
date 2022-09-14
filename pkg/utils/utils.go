@@ -136,5 +136,5 @@ func GenMac() (net.HardwareAddr, error) {
 // run at time.
 func GenIPAddress() string {
 	// Hardcode
-	return fmt.Sprintf("172.69.%d.%d", rand.Intn(254), rand.Intn(254))
+	return fmt.Sprintf("172.69.%d.%d/16", rand.Intn(254), rand.Intn(254))
 }
