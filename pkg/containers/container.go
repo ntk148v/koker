@@ -42,8 +42,9 @@ func NewContainer(id string) *Container {
 }
 
 func (c *Container) Run(src string, cmds []string, mem, swap, pids int, cpus float64) error {
+	defer c.delete()
 	// Setup network
-	delNet, err := c.SetupNetwork(constants.KokerBridgeName)
+	delNet, err := c.setupNetwork(constants.KokerBridgeName)
 	if err != nil {
 		return errors.Wrap(err, "unable to setup network")
 	}
@@ -62,7 +63,7 @@ func (c *Container) Run(src string, cmds []string, mem, swap, pids int, cpus flo
 	}
 
 	// Mount overlayfs
-	unmount, err := c.MountOverlayFS(img)
+	unmount, err := c.mountOverlayFS(img)
 	if err != nil {
 		return errors.Wrap(err, "unable to mount overlayfs")
 	}
@@ -79,7 +80,7 @@ func (c *Container) Run(src string, cmds []string, mem, swap, pids int, cpus flo
 	if cpus > 0 {
 		opts = append(opts, "--cpus="+strconv.FormatFloat(cpus, 'f', 1, 64))
 	}
-	args := append([]string{c.ID, img.ID}, cmds...)
+	args := append([]string{c.ID}, cmds...)
 	args = append(opts, args...)
 	args = append([]string{"container", "child"}, args...)
 	// /proc/self/exe - a special file containing an in-memory image of the current executable.
@@ -92,19 +93,23 @@ func (c *Container) Run(src string, cmds []string, mem, swap, pids int, cpus flo
 	return cmd.Run()
 }
 
-func (c *Container) ExecuteCommand(imgSHA string, cmdArgs []string, mem, swap, pids int, cpus float64) error {
-	defer c.delete()
-	c.SetHostname()
+func (c *Container) ExecuteCommand(cmdArgs []string, mem, swap, pids int, cpus float64) error {
+	c.setHostname()
 	// Set network
-	unset, err := c.SetNetworkNamespace()
+	unset, err := c.setNetworkNamespace()
 	if err != nil {
 		return errors.Wrap(err, "unable to set network namespace")
 	}
 	defer unset()
 
 	// Setup cgroups
-	if err := c.SetLimit(mem, swap, pids, cpus); err != nil {
+	if err := c.setLimit(mem, swap, pids, cpus); err != nil {
 		return errors.Wrap(err, "unable to set container's limit")
+	}
+
+	// Copy nameserver
+	if err := c.copyNameServerConfig(); err != nil {
+		return errors.Wrap(err, "unable to copy name server config")
 	}
 
 	// Change root
@@ -125,6 +130,9 @@ func (c *Container) ExecuteCommand(imgSHA string, cmdArgs []string, mem, swap, p
 	mountPoints := []filesystem.MountOption{
 		{Source: "proc", Target: "proc", Type: "proc"},
 		{Source: "sysfs", Target: "sys", Type: "sysfs"},
+		{Source: "tmpfs", Target: "tmp", Type: "tmpfs"},
+		{Source: "tmpfs", Target: "dev", Type: "tmpfs"},
+		{Source: "devpts", Target: "dev/pts", Type: "devpts"},
 	}
 	unmount, err := filesystem.Mount(mountPoints...)
 	if err != nil {
@@ -141,7 +149,12 @@ func (c *Container) ExecuteCommand(imgSHA string, cmdArgs []string, mem, swap, p
 		cmdArgs = append(cmdArgs, c.Config.Cmd...)
 	}
 
-	cmd = exec.Command(cmdArgs[0], cmdArgs[1:]...)
+	command, argv := c.cmdAndArgs(c.Config.Cmd)
+	if len(cmdArgs) > 0 {
+		command, argv = c.cmdAndArgs(cmdArgs)
+	}
+
+	cmd = exec.Command(command, argv...)
 	cmd.Stderr = os.Stderr
 	cmd.Stdout = os.Stdout
 	cmd.Stdin = os.Stdin
@@ -150,7 +163,35 @@ func (c *Container) ExecuteCommand(imgSHA string, cmdArgs []string, mem, swap, p
 	return cmd.Run()
 }
 
-func (c *Container) SetLimit(mem, swap, pids int, cpus float64) error {
+func (c *Container) cmdAndArgs(args []string) (command string, argv []string) {
+	if len(args) == 0 {
+		return
+	}
+	command = args[0]
+	argv = args[1:]
+	return
+}
+
+func (c *Container) copyNameServerConfig() error {
+	c.log.Info().Msg("Copy nameserver config")
+	resolvFilePaths := []string{
+		"/var/run/systemd/resolve/resolv.conf",
+		fmt.Sprintf("/etc/%sresolv.conf", constants.KokerApp),
+		"/etc/resolv.conf",
+	}
+	for _, resolvFilePath := range resolvFilePaths {
+		if _, err := os.Stat(resolvFilePath); os.IsNotExist(err) {
+			continue
+		}
+		if err := utils.CopyFile(resolvFilePath,
+			filepath.Join(c.RootFS, "etc/resolv.conf")); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (c *Container) setLimit(mem, swap, pids int, cpus float64) error {
 	c.log.Info().Msg("Set container's limit using cgroup")
 	c.log.Debug().Msg("Set container's memory limit")
 	if err := c.cg.setMemSwpLimit(mem, swap); err != nil {
@@ -167,9 +208,9 @@ func (c *Container) SetLimit(mem, swap, pids int, cpus float64) error {
 	return nil
 }
 
-// SetHostname sets container's hostname
+// setHostname sets container's hostname
 // Default: ID[:12]
-func (c *Container) SetHostname() {
+func (c *Container) setHostname() {
 	c.log.Info().Msg("Set hostname")
 	if c.Config.Hostname == "" {
 		c.Config.Hostname = c.ID[:12]
@@ -192,9 +233,9 @@ func (c *Container) delete() error {
 	return nil
 }
 
-// MountOverlayFS mounts filesystem for Container from an Image.
+// mountOverlayFS mounts filesystem for Container from an Image.
 // It uses overlayFS for union mount of multiple layers.
-func (c *Container) MountOverlayFS(img *images.Image) (filesystem.Unmounter, error) {
+func (c *Container) mountOverlayFS(img *images.Image) (filesystem.Unmounter, error) {
 	c.log.Info().Str("image", img.Name).
 		Msg("Mount filesystem for container from an image")
 	if err := os.MkdirAll(c.RootFS, 0700); err != nil {
@@ -249,8 +290,8 @@ func (c *Container) LoadConfig() error {
 	return nil
 }
 
-// SetupNetwork configures network for the container
-func (c *Container) SetupNetwork(bridge string) (filesystem.Unmounter, error) {
+// setupNetwork configures network for the container
+func (c *Container) setupNetwork(bridge string) (filesystem.Unmounter, error) {
 	c.log.Info().Msg("Setup network for container")
 	nsMountTarget := filepath.Join(constants.KokerNetNsPath, c.ID)
 	vethName := fmt.Sprintf("%s%.7s", constants.KokerVirtual0Pfx, c.ID)
@@ -300,7 +341,7 @@ func (c *Container) SetupNetwork(bridge string) (filesystem.Unmounter, error) {
 	return unmount, nil
 }
 
-func (c *Container) SetNetworkNamespace() (network.Unsetter, error) {
+func (c *Container) setNetworkNamespace() (network.Unsetter, error) {
 	netns := filepath.Join(constants.KokerNetNsPath, c.ID)
 	return network.SetNetNSByFile(netns)
 }

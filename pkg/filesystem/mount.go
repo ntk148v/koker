@@ -8,6 +8,8 @@ import (
 
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
+
+	"github.com/ntk148v/koker/pkg/utils"
 )
 
 type Unmounter func() error
@@ -36,6 +38,7 @@ func Mount(mountOpts ...MountOption) (Unmounter, error) {
 	for _, p := range mountOpts {
 		log.Debug().Str("source", p.Source).Str("target", p.Target).
 			Msg("Mount target")
+		utils.CreateDir(p.Target)
 		if err := syscall.Mount(p.Source, p.Target, p.Type, p.Flag, p.Option); err != nil {
 			return unmounter, errors.Wrapf(err, "unable to mount %s to %s", p.Source, p.Target)
 		}

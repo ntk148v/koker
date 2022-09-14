@@ -166,11 +166,10 @@ func main() {
 				Action: func(ctx *cli.Context) error {
 					args := ctx.Args()
 					container := args.Get(0)
-					image := args.Get(1)
 
 					var commands []string
-					if len(args.Slice()) >= 3 {
-						commands = args.Slice()[2:]
+					if len(args.Slice()) >= 2 {
+						commands = args.Slice()[1:]
 					}
 
 					c := containers.NewContainer(container)
@@ -179,8 +178,7 @@ func main() {
 					}
 
 					// Execute command
-					if err := c.ExecuteCommand(
-						image, commands, ctx.Int("mem"), ctx.Int("swap"),
+					if err := c.ExecuteCommand(commands, ctx.Int("mem"), ctx.Int("swap"),
 						ctx.Int("pids"), ctx.Float64("cpus")); err != nil {
 						return fmt.Errorf("error executing container command: %v", err)
 					}
