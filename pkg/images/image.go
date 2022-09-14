@@ -30,7 +30,6 @@ func NewImage(src string) (*Image, error) {
 		return nil, err
 	}
 
-	log.Debug().Str("image", src).Msg("Pull image")
 	img, err := crane.Pull(tag.Name())
 	if err != nil {
 		return nil, err

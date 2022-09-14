@@ -93,7 +93,7 @@ func (c *Container) Run(src string, cmds []string, mem, swap, pids int, cpus flo
 }
 
 func (c *Container) ExecuteCommand(imgSHA string, cmdArgs []string, mem, swap, pids int, cpus float64) error {
-	defer c.Delete()
+	defer c.delete()
 	c.SetHostname()
 	// Set network
 	unset, err := c.SetNetworkNamespace()
@@ -177,7 +177,7 @@ func (c *Container) SetHostname() {
 	syscall.Sethostname([]byte(c.Config.Hostname))
 }
 
-func (c *Container) Delete() error {
+func (c *Container) delete() error {
 	c.log.Info().Msg("Delete container")
 	c.log.Debug().Msg("Remove container's directory")
 	if err := os.RemoveAll(filepath.Join(constants.KokerContainersPath, c.ID)); err != nil {
