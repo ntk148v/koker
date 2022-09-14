@@ -18,6 +18,7 @@ import (
 	"github.com/ntk148v/koker/pkg/filesystem"
 	"github.com/ntk148v/koker/pkg/images"
 	"github.com/ntk148v/koker/pkg/network"
+	"github.com/ntk148v/koker/pkg/reexec"
 	"github.com/ntk148v/koker/pkg/utils"
 )
 
@@ -42,7 +43,6 @@ func NewContainer(id string) *Container {
 }
 
 func (c *Container) Run(src string, cmds []string, mem, swap, pids int, cpus float64) error {
-	defer c.delete()
 	// Setup network
 	delNet, err := c.setupNetwork(constants.KokerBridgeName)
 	if err != nil {
@@ -85,11 +85,14 @@ func (c *Container) Run(src string, cmds []string, mem, swap, pids int, cpus flo
 	args = append([]string{"container", "child"}, args...)
 	// /proc/self/exe - a special file containing an in-memory image of the current executable.
 	// In other words, we re-run ourselves, but passing childs as the first agrument.
-	cmd := exec.Command("/proc/self/exe", args...)
-	cmd.Stderr = os.Stderr
-	cmd.Stdout = os.Stdout
-	cmd.Stdin = os.Stdin
-
+	cmd := reexec.Command(args...)
+	cmd.Stdin, cmd.Stdout, cmd.Stderr = os.Stdin, os.Stdout, os.Stderr
+	cmd.SysProcAttr = &syscall.SysProcAttr{
+		Cloneflags: syscall.CLONE_NEWNS |
+			syscall.CLONE_NEWUTS |
+			syscall.CLONE_NEWIPC |
+			syscall.CLONE_NEWPID,
+	}
 	return cmd.Run()
 }
 
@@ -159,7 +162,6 @@ func (c *Container) ExecuteCommand(cmdArgs []string, mem, swap, pids int, cpus f
 	cmd.Stdout = os.Stdout
 	cmd.Stdin = os.Stdin
 	cmd.Env = c.Config.Env
-
 	return cmd.Run()
 }
 
@@ -218,7 +220,7 @@ func (c *Container) setHostname() {
 	syscall.Sethostname([]byte(c.Config.Hostname))
 }
 
-func (c *Container) delete() error {
+func (c *Container) Delete() error {
 	c.log.Info().Msg("Delete container")
 	c.log.Debug().Msg("Remove container's directory")
 	if err := os.RemoveAll(filepath.Join(constants.KokerContainersPath, c.ID)); err != nil {
