@@ -2,7 +2,9 @@ package main
 
 import (
 	"fmt"
+	"math/rand"
 	"os"
+	"time"
 
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
@@ -34,6 +36,8 @@ func main() {
 	if err := utils.InitKokerDirs(); err != nil {
 		log.Fatal().Err(err).Msg("Unable to create requisite directories")
 	}
+
+	rand.Seed(time.Now().UnixNano())
 
 	// Load image registry
 	if err := images.LoadRepository(); err != nil {
