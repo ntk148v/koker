@@ -8,6 +8,7 @@ import (
 	"strconv"
 
 	"github.com/ntk148v/koker/pkg/constants"
+	"github.com/ntk148v/koker/pkg/utils"
 )
 
 type cgroups struct {
@@ -26,13 +27,22 @@ type cgroups struct {
 
 // newCGroup cretates an empty cgroups
 func newCGroup(path string) *cgroups {
-	pfx := filepath.Join(constants.CGroupPath, path)
+	// create dirs
+	dirs := map[string]string{
+		"memory": filepath.Join(constants.CGroupPath, "memory", path),
+		"cpu":    filepath.Join(constants.CGroupPath, "cpu", path),
+		"pids":   filepath.Join(constants.CGroupPath, "pids", path),
+	}
+	for _, dir := range dirs {
+		utils.CreateDir(dir)
+	}
+
 	return &cgroups{
-		memPath:       filepath.Join(pfx, constants.MemLimitFilename),
-		memswPath:     filepath.Join(pfx, constants.MemswLimitFilename),
-		cpuPeriodPath: filepath.Join(pfx, constants.CpuPeriodFilename),
-		cpuQuotaPath:  filepath.Join(pfx, constants.CpuQuotaFilename),
-		procsPath:     filepath.Join(pfx, constants.ProcsFilename),
+		memPath:       filepath.Join(dirs["memory"], constants.MemLimitFilename),
+		memswPath:     filepath.Join(dirs["memory"], constants.MemswLimitFilename),
+		cpuPeriodPath: filepath.Join(dirs["cpu"], constants.CpuPeriodFilename),
+		cpuQuotaPath:  filepath.Join(dirs["cpu"], constants.CpuQuotaFilename),
+		procsPath:     filepath.Join(dirs["pids"], constants.ProcsFilename),
 	}
 }
 
