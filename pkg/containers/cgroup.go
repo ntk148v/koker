@@ -1,6 +1,7 @@
 package containers
 
 import (
+	"bufio"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -17,7 +18,7 @@ type cgroups struct {
 	memswPath     string
 	cpuPeriodPath string
 	cpuQuotaPath  string
-	procsPath     string
+	pidsPath      string
 	mem           int
 	memsw         int
 	cfsPeriod     int
@@ -33,6 +34,7 @@ func newCGroup(path string) *cgroups {
 		"cpu":    filepath.Join(constants.CGroupPath, "cpu", path),
 		"pids":   filepath.Join(constants.CGroupPath, "pids", path),
 	}
+
 	for _, dir := range dirs {
 		utils.CreateDir(dir)
 	}
@@ -42,7 +44,7 @@ func newCGroup(path string) *cgroups {
 		memswPath:     filepath.Join(dirs["memory"], constants.MemswLimitFilename),
 		cpuPeriodPath: filepath.Join(dirs["cpu"], constants.CpuPeriodFilename),
 		cpuQuotaPath:  filepath.Join(dirs["cpu"], constants.CpuQuotaFilename),
-		procsPath:     filepath.Join(dirs["pids"], constants.ProcsFilename),
+		pidsPath:      filepath.Join(dirs["pids"], constants.MaxProcessFilename),
 	}
 }
 
@@ -70,7 +72,7 @@ func (cg *cgroups) setMemSwpLimit(memory, swap int) error {
 func (cg *cgroups) setPidsLimit(pids int) error {
 	if pids > 0 {
 		cg.pids = pids
-		if err := ioutil.WriteFile(cg.procsPath, []byte(strconv.Itoa(cg.pids)), 0644); err != nil {
+		if err := ioutil.WriteFile(cg.pidsPath, []byte(strconv.Itoa(cg.pids)), 0644); err != nil {
 			return err
 		}
 	}
@@ -94,13 +96,31 @@ func (cg *cgroups) setCPULimit(cpus float64) error {
 	return nil
 }
 
+// addProcess adds a pid into a CGroup.
+func (cg *cgroups) addProcess() error {
+	// Get pid
+	pid := os.Getpid()
+	dirs := []string{
+		filepath.Dir(cg.memPath), filepath.Dir(cg.memswPath),
+		filepath.Dir(cg.cpuPeriodPath), filepath.Dir(cg.cpuQuotaPath),
+		filepath.Dir(cg.pidsPath),
+	}
+
+	for _, dir := range dirs {
+		if err := ioutil.WriteFile(filepath.Join(dir, constants.ProcsFilename),
+			[]byte(strconv.Itoa(pid)), 0700); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // Remove removes CGroups
 // It will only works if there is no process running in the CGroups
 func (cg *cgroups) remove() {
 	dirs := []string{
 		filepath.Dir(cg.memPath), filepath.Dir(cg.memswPath),
 		filepath.Dir(cg.cpuPeriodPath), filepath.Dir(cg.cpuQuotaPath),
-		filepath.Dir(cg.procsPath),
 	}
 	for _, dir := range dirs {
 		if _, err := os.Stat(dir); os.IsNotExist(err) {
@@ -108,4 +128,23 @@ func (cg *cgroups) remove() {
 		}
 		os.Remove(dir)
 	}
+}
+
+// getPids returns slice of pids running on CGroups
+func (cg *cgroups) getPids() ([]string, error) {
+	var pids []string
+	procFile, err := os.Open(filepath.Join(filepath.Dir(cg.pidsPath),
+		constants.ProcsFilename))
+	if err != nil {
+		return pids, err
+	}
+	defer procFile.Close()
+
+	scanner := bufio.NewScanner(procFile)
+	for scanner.Scan() {
+		pid := scanner.Text()
+		pids = append(pids, pid)
+	}
+
+	return pids, nil
 }

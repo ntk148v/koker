@@ -1,6 +1,7 @@
 package containers
 
 import (
+	"bytes"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -22,11 +23,44 @@ import (
 	"github.com/ntk148v/koker/pkg/utils"
 )
 
+func GetAllContainers() ([]map[string]string, error) {
+	all := make([]map[string]string, 0)
+	files, err := ioutil.ReadDir(constants.KokerContainersPath)
+	if err != nil {
+		return all, err
+	}
+
+	for _, file := range files {
+		if !file.IsDir() {
+			continue
+		}
+
+		// Load container
+		c := NewContainer(file.Name())
+		if err := c.LoadConfig(); err != nil {
+			return all, err
+		}
+
+		// Get cmd
+		cmd, err := c.getCmd()
+		if err != nil {
+			return all, err
+		}
+
+		all = append(all, map[string]string{
+			"id":    c.ID,
+			"image": c.Config.Image[8:],
+			"cmd":   cmd,
+		})
+	}
+
+	return all, nil
+}
+
 type Container struct {
 	Config *v1.Config
 	ID     string
 	RootFS string
-	Pids   []int
 	log    zerolog.Logger
 	cg     *cgroups
 }
@@ -40,6 +74,23 @@ func NewContainer(id string) *Container {
 		log:    log.With().Str("container", id).Logger(),
 		cg:     newCGroup(filepath.Join(constants.KokerApp, id)),
 	}
+}
+
+func (c *Container) getCmd() (string, error) {
+	var cmd string
+	pids, err := c.cg.getPids()
+	if err != nil {
+		return cmd, err
+	}
+	if len(pids) > 0 {
+		pid := pids[len(pids)-1]
+		cmdline, err := ioutil.ReadFile(filepath.Join("/proc", pid, "cmdline"))
+		if err != nil {
+			return cmd, err
+		}
+		cmd = string(bytes.TrimSpace(bytes.ReplaceAll(cmdline, []byte{0}, []byte{' '})))
+	}
+	return cmd, nil
 }
 
 func (c *Container) Run(src string, cmds []string, hostname string, mem, swap, pids int, cpus float64) error {
@@ -124,6 +175,10 @@ func (c *Container) ExecuteCommand(cmdArgs []string, hostname string, mem, swap,
 	}()
 
 	// Setup cgroups
+	if err := c.cg.addProcess(); err != nil {
+		return err
+	}
+
 	if err := c.setLimit(mem, swap, pids, cpus); err != nil {
 		return errors.Wrap(err, "unable to set container's limit")
 	}

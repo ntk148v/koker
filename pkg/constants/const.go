@@ -24,4 +24,11 @@ const (
 	CpuPeriodFilename    = "cpu.cfs_period_us"
 	MaxProcessFilename   = "pids.max"
 	DefaultCfsPeriod     = 100000
+
+	ContainerTemplate = `
+CONTAINER ID{{"\t\t"}}IMAGE       {{"\t\t"}}COMMAND
+{{ range $container := . }}
+{{ printf "%.12s" $container.id }}{{"\t\t"}}{{ printf "%.12s" $container.image }}{{"\t\t"}}{{ $container.cmd }}
+{{ end }}
+`
 )

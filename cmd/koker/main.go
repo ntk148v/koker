@@ -220,7 +220,11 @@ func main() {
 				Flags: []cli.Flag{},
 				Action: func(ctx *cli.Context) error {
 					// List all running containers
-					return nil
+					cs, err := containers.GetAllContainers()
+					if err != nil {
+						return errors.Wrap(err, "unable to get all containers")
+					}
+					return utils.GenTemplate("container", constants.ContainerTemplate, cs)
 				},
 			},
 		},

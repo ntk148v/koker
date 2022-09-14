@@ -35,14 +35,11 @@ func NewImage(src string) (*Image, error) {
 		return nil, err
 	}
 
-	digest, err := img.Digest()
-	if err != nil {
-		return nil, err
-	}
+	imgCfgFile, _ := img.ConfigFile()
 
 	return &Image{
 		Image:    img,
-		ID:       digest.Hex,
+		ID:       imgCfgFile.Config.Image,
 		Registry: tag.RegistryStr(),
 		Name:     tag.Name(),
 		Tag:      tag.TagStr(),

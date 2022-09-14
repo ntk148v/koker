@@ -8,6 +8,7 @@ import (
 	"math/rand"
 	"os"
 	"path/filepath"
+	"text/template"
 
 	"github.com/rs/xid"
 	"github.com/rs/zerolog/log"
@@ -143,4 +144,14 @@ func CmdAndArgs(args []string) (command string, argv []string) {
 	command = args[0]
 	argv = args[1:]
 	return
+}
+
+// GenTemplate inits and execute the given template
+func GenTemplate(name, tempStr string, input any) error {
+	temp := template.New(name)
+	temp, err := temp.Parse(tempStr)
+	if err != nil {
+		return err
+	}
+	return temp.Execute(os.Stdout, input)
 }
