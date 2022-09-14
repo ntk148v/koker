@@ -43,12 +43,21 @@ func NewContainer(id string) *Container {
 }
 
 func (c *Container) Run(src string, cmds []string, mem, swap, pids int, cpus float64) error {
+	defer func() {
+		if err := c.delete(); err != nil {
+			c.log.Error().Err(err).Msg("Clean up container failed")
+		}
+	}()
 	// Setup network
 	delNet, err := c.setupNetwork(constants.KokerBridgeName)
 	if err != nil {
 		return errors.Wrap(err, "unable to setup network")
 	}
-	defer delNet()
+	defer func() {
+		if err := delNet(); err != nil {
+			c.log.Error().Err(err).Msg("Unmount network namespace failed")
+		}
+	}()
 
 	// Get image
 	img, err := images.NewImage(src)
@@ -67,7 +76,11 @@ func (c *Container) Run(src string, cmds []string, mem, swap, pids int, cpus flo
 	if err != nil {
 		return errors.Wrap(err, "unable to mount overlayfs")
 	}
-	defer unmount()
+	defer func() {
+		if err := unmount(); err != nil {
+			c.log.Error().Err(err).Msg("Unmount overlayfs failed")
+		}
+	}()
 
 	// Format child options
 	var opts []string
@@ -103,7 +116,11 @@ func (c *Container) ExecuteCommand(cmdArgs []string, mem, swap, pids int, cpus f
 	if err != nil {
 		return errors.Wrap(err, "unable to set network namespace")
 	}
-	defer unset()
+	defer func() {
+		if err := unset(); err != nil {
+			c.log.Error().Err(err).Msg("Unset network namespace failed")
+		}
+	}()
 
 	// Setup cgroups
 	if err := c.setLimit(mem, swap, pids, cpus); err != nil {
@@ -131,17 +148,20 @@ func (c *Container) ExecuteCommand(cmdArgs []string, mem, swap, pids int, cpus f
 
 	// Mount necessaries
 	mountPoints := []filesystem.MountOption{
+		{Source: "tmpfs", Target: "dev", Type: "tmpfs"},
 		{Source: "proc", Target: "proc", Type: "proc"},
 		{Source: "sysfs", Target: "sys", Type: "sysfs"},
 		{Source: "tmpfs", Target: "tmp", Type: "tmpfs"},
-		{Source: "tmpfs", Target: "dev", Type: "tmpfs"},
-		{Source: "devpts", Target: "dev/pts", Type: "devpts"},
 	}
 	unmount, err := filesystem.Mount(mountPoints...)
 	if err != nil {
 		return err
 	}
-	defer unmount()
+	defer func() {
+		if err := unmount(); err != nil {
+			c.log.Error().Err(err).Msg("Unmount mountpoints (proc, sys,tmp, dev) failed")
+		}
+	}()
 
 	var cmd *exec.Cmd
 
@@ -152,26 +172,18 @@ func (c *Container) ExecuteCommand(cmdArgs []string, mem, swap, pids int, cpus f
 		cmdArgs = append(cmdArgs, c.Config.Cmd...)
 	}
 
-	command, argv := c.cmdAndArgs(c.Config.Cmd)
+	command, argv := utils.CmdAndArgs(c.Config.Cmd)
 	if len(cmdArgs) > 0 {
-		command, argv = c.cmdAndArgs(cmdArgs)
+		command, argv = utils.CmdAndArgs(cmdArgs)
 	}
 
+	c.log.Debug().Str("command", command).Msg("Execute command")
 	cmd = exec.Command(command, argv...)
 	cmd.Stderr = os.Stderr
 	cmd.Stdout = os.Stdout
 	cmd.Stdin = os.Stdin
 	cmd.Env = c.Config.Env
 	return cmd.Run()
-}
-
-func (c *Container) cmdAndArgs(args []string) (command string, argv []string) {
-	if len(args) == 0 {
-		return
-	}
-	command = args[0]
-	argv = args[1:]
-	return
 }
 
 func (c *Container) copyNameServerConfig() error {
@@ -220,7 +232,7 @@ func (c *Container) setHostname() {
 	syscall.Sethostname([]byte(c.Config.Hostname))
 }
 
-func (c *Container) Delete() error {
+func (c *Container) delete() error {
 	c.log.Info().Msg("Delete container")
 	c.log.Debug().Msg("Remove container's directory")
 	if err := os.RemoveAll(filepath.Join(constants.KokerContainersPath, c.ID)); err != nil {
@@ -264,17 +276,6 @@ func (c *Container) mountOverlayFS(img *images.Image) (filesystem.Unmounter, err
 	return unmounter, c.copyImageConfig(img)
 }
 
-func (c *Container) copyImageConfig(img *images.Image) error {
-	c.log.Debug().Str("image", img.Name).Msg("Copy container config from image config")
-	conCfg := filepath.Join(constants.KokerContainersPath, c.ID, "config.json")
-	data, err := img.RawConfigFile()
-	if err != nil {
-		return err
-	}
-
-	return ioutil.WriteFile(conCfg, data, 0655)
-}
-
 func (c *Container) LoadConfig() error {
 	c.log.Info().Msg("Load container config from file")
 	conCfg := filepath.Join(constants.KokerContainersPath, c.ID, "config.json")
@@ -290,6 +291,17 @@ func (c *Container) LoadConfig() error {
 	}
 	c.Config = configFile.Config.DeepCopy()
 	return nil
+}
+
+func (c *Container) copyImageConfig(img *images.Image) error {
+	c.log.Debug().Str("image", img.Name).Msg("Copy container config from image config")
+	conCfg := filepath.Join(constants.KokerContainersPath, c.ID, "config.json")
+	data, err := img.RawConfigFile()
+	if err != nil {
+		return err
+	}
+
+	return ioutil.WriteFile(conCfg, data, 0655)
 }
 
 // setupNetwork configures network for the container
@@ -321,7 +333,11 @@ func (c *Container) setupNetwork(bridge string) (filesystem.Unmounter, error) {
 	if err != nil {
 		return unmount, err
 	}
-	defer unset()
+	defer func() {
+		if err := unset(); err != nil {
+			c.log.Error().Err(err).Msg("unable to unset network namespace")
+		}
+	}()
 
 	ctrEthIPAddr := utils.GenIPAddress()
 	if err := network.LinkRename(peerName, constants.KokerCtrEthName); err != nil {

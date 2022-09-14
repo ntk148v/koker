@@ -125,7 +125,6 @@ func main() {
 					}
 
 					c := containers.NewContainer(utils.GenUID())
-					defer c.Delete()
 
 					// Init container
 					if err := c.Run(image, commands, ctx.Int("mem"), ctx.Int("swap"),
