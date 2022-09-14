@@ -94,21 +94,35 @@ func Extract(reader io.Reader, target string, gz bool) error {
 
 		path := filepath.Join(target, header.Name)
 		info := header.FileInfo()
-		if info.IsDir() {
+
+		switch header.Typeflag {
+		case tar.TypeDir:
 			if err = os.MkdirAll(path, info.Mode()); err != nil {
 				return err
 			}
 			continue
-		}
-
-		file, err := os.OpenFile(path, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, info.Mode())
-		if err != nil {
-			return err
-		}
-		defer file.Close()
-		_, err = io.Copy(file, tarReader)
-		if err != nil {
-			return err
+		case tar.TypeReg:
+			file, err := os.OpenFile(path, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, info.Mode())
+			if err != nil {
+				return err
+			}
+			defer file.Close()
+			_, err = io.Copy(file, tarReader)
+			if err != nil {
+				return err
+			}
+		case tar.TypeLink:
+			link := filepath.Join(target, header.Name)
+			linkTarget := filepath.Join(target, header.Linkname)
+			// lazy link creation. just to make sure all files are available
+			defer os.Link(link, linkTarget)
+		case tar.TypeSymlink:
+			linkPath := filepath.Join(target, header.Name)
+			if err := os.Symlink(header.Linkname, linkPath); err != nil {
+				if !os.IsExist(err) {
+					return err
+				}
+			}
 		}
 	}
 	return nil
