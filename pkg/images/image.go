@@ -24,13 +24,13 @@ type Image struct {
 
 // NewImage pulls image, constructs and returns a new Image
 func NewImage(src string) (*Image, error) {
-	log.Info().Str("src", src).Msg("Construct new Image instance")
+	log.Info().Str("image", src).Msg("Construct new Image instance")
 	tag, err := name.NewTag(src)
 	if err != nil {
 		return nil, err
 	}
 
-	log.Debug().Str("src", src).Msg("Pull image")
+	log.Debug().Str("image", src).Msg("Pull image")
 	img, err := crane.Pull(tag.Name())
 	if err != nil {
 		return nil, err
@@ -79,6 +79,6 @@ func (i *Image) Download() error {
 	}
 
 	// Save to registry
-	SetImage(i.ID, *i)
+	SetImage(i.ID, i.Name)
 	return nil
 }

@@ -36,11 +36,11 @@ func main() {
 	}
 
 	// Load image registry
-	if err := images.LoadRegistry(); err != nil {
+	if err := images.LoadRepository(); err != nil {
 		log.Fatal().Err(err).Msg("Unable to load image registry")
 	}
 
-	defer images.SaveRegistry()
+	defer images.SaveRepository()
 
 	app := &cli.App{
 		Name:    "koker",
