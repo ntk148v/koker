@@ -1,15 +1,17 @@
 package main
 
 import (
-	"errors"
 	"fmt"
 	"os"
 
+	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"github.com/urfave/cli/v2"
 
+	"github.com/ntk148v/koker/pkg/constants"
 	"github.com/ntk148v/koker/pkg/containers"
+	"github.com/ntk148v/koker/pkg/images"
 	"github.com/ntk148v/koker/pkg/network"
 	"github.com/ntk148v/koker/pkg/utils"
 )
@@ -32,6 +34,13 @@ func main() {
 	if err := utils.InitKokerDirs(); err != nil {
 		log.Fatal().Err(err).Msg("Unable to create requisite directories")
 	}
+
+	// Load image registry
+	if err := images.LoadRepository(); err != nil {
+		log.Fatal().Err(err).Msg("Unable to load image registry")
+	}
+
+	defer images.SaveRepository()
 
 	app := &cli.App{
 		Name:    "koker",
@@ -71,9 +80,15 @@ func main() {
 				ArgsUsage: "IMAGE [COMMAND]",
 				Flags: []cli.Flag{
 					&cli.IntFlag{
-						Name:    "memory",
+						Name:    "mem",
 						Aliases: []string{"m"},
 						Usage:   "Memory limit in MB",
+						Value:   -1,
+					},
+					&cli.IntFlag{
+						Name:    "swap",
+						Aliases: []string{"sw"},
+						Usage:   "Swap limit in MB",
 						Value:   -1,
 					},
 					&cli.Float64Flag{
@@ -91,9 +106,10 @@ func main() {
 				},
 				Action: func(ctx *cli.Context) error {
 					// Create and setup network bridge
-					if ok, _ := network.CheckBridgeUp(); !ok {
-						if err := network.SetupBridge(); err != nil {
-							return fmt.Errorf("error creating default bridge: %v", err)
+					if ok, _ := network.CheckBridgeUp(constants.KokerBridgeName); !ok {
+						if err := network.SetupBridge(constants.KokerBridgeName,
+							constants.KokerBridgeDefaultIP+"/16"); err != nil {
+							return errors.Wrap(err, "unable to create default bridge")
 						}
 					}
 
@@ -108,8 +124,10 @@ func main() {
 						commands = args.Slice()[1:]
 					}
 
+					c := containers.NewContainer(utils.GenUID())
+
 					// Init container
-					if err := containers.InitContainer(image, commands, ctx.Int("mem"),
+					if err := c.Run(image, commands, ctx.Int("mem"), ctx.Int("swap"),
 						ctx.Int("pids"), ctx.Float64("cpus")); err != nil {
 						return fmt.Errorf("error initializing container: %v", err)
 					}
@@ -121,9 +139,15 @@ func main() {
 				HideHelp: true,
 				Flags: []cli.Flag{
 					&cli.IntFlag{
-						Name:    "memory",
+						Name:    "mem",
 						Aliases: []string{"m"},
 						Usage:   "Memory limit in MB",
+						Value:   -1,
+					},
+					&cli.IntFlag{
+						Name:    "swap",
+						Aliases: []string{"sw"},
+						Usage:   "Swap limit in MB",
 						Value:   -1,
 					},
 					&cli.Float64Flag{
@@ -142,16 +166,19 @@ func main() {
 				Action: func(ctx *cli.Context) error {
 					args := ctx.Args()
 					container := args.Get(0)
-					image := args.Get(1)
 
 					var commands []string
-					if len(args.Slice()) >= 3 {
-						commands = args.Slice()[2:]
+					if len(args.Slice()) >= 2 {
+						commands = args.Slice()[1:]
+					}
+
+					c := containers.NewContainer(container)
+					if err := c.LoadConfig(); err != nil {
+						return err
 					}
 
 					// Execute command
-					if err := containers.ExecuteContainerCommand(
-						container, image, commands, ctx.Int("mem"),
+					if err := c.ExecuteCommand(commands, ctx.Int("mem"), ctx.Int("swap"),
 						ctx.Int("pids"), ctx.Float64("cpus")); err != nil {
 						return fmt.Errorf("error executing container command: %v", err)
 					}
@@ -230,8 +257,7 @@ func main() {
 		containerCmd,
 		imageCmd,
 	}
-
 	if err := app.Run(os.Args); err != nil {
-		log.Fatal().Err(err).Msg("Something went wrong")
+		log.Error().Err(err).Msg("Something went wrong")
 	}
 }
