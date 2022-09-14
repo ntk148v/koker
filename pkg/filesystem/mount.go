@@ -24,7 +24,7 @@ type MountOption struct {
 func Mount(mountOpts ...MountOption) (Unmounter, error) {
 	unmounter := func() error {
 		for _, p := range mountOpts {
-			log.Debug().Str("src", p.Source).Str("target", p.Target).
+			log.Debug().Str("source", p.Source).Str("target", p.Target).
 				Msg("Unmount target")
 			if err := syscall.Unmount(p.Target, 0); err != nil {
 				return errors.Wrapf(err, "unable to umount %q", p.Target)
@@ -34,6 +34,8 @@ func Mount(mountOpts ...MountOption) (Unmounter, error) {
 	}
 
 	for _, p := range mountOpts {
+		log.Debug().Str("source", p.Source).Str("target", p.Target).
+			Msg("Mount target")
 		if err := syscall.Mount(p.Source, p.Target, p.Type, p.Flag, p.Option); err != nil {
 			return unmounter, errors.Wrapf(err, "unable to mount %s to %s", p.Source, p.Target)
 		}
