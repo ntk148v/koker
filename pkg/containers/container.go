@@ -93,6 +93,7 @@ func (c *Container) Run(src string, cmds []string, mem, swap, pids int, cpus flo
 }
 
 func (c *Container) ExecuteCommand(imgSHA string, cmdArgs []string, mem, swap, pids int, cpus float64) error {
+	defer c.Delete()
 	c.SetHostname()
 	// Set network
 	unset, err := c.SetNetworkNamespace()
@@ -194,8 +195,7 @@ func (c *Container) Delete() error {
 // MountOverlayFS mounts filesystem for Container from an Image.
 // It uses overlayFS for union mount of multiple layers.
 func (c *Container) MountOverlayFS(img *images.Image) (filesystem.Unmounter, error) {
-	imgSrc := img.Name + ":" + img.Tag
-	c.log.Info().Str("image", imgSrc).
+	c.log.Info().Str("image", img.Name).
 		Msg("Mount filesystem for container from an image")
 	if err := os.MkdirAll(c.RootFS, 0700); err != nil {
 		return nil, errors.Wrapf(err, "can't create %s directory", c.RootFS)
@@ -222,7 +222,7 @@ func (c *Container) MountOverlayFS(img *images.Image) (filesystem.Unmounter, err
 }
 
 func (c *Container) copyImageConfig(img *images.Image) error {
-	c.log.Debug().Str("image", img.Name+":"+img.Tag).Msg("Copy container config from image config")
+	c.log.Debug().Str("image", img.Name).Msg("Copy container config from image config")
 	conCfg := filepath.Join(constants.KokerContainersPath, c.ID, "config.json")
 	data, err := img.RawConfigFile()
 	if err != nil {
