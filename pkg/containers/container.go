@@ -42,7 +42,7 @@ func NewContainer(id string) *Container {
 	}
 }
 
-func (c *Container) Run(src string, cmds []string, mem, swap, pids int, cpus float64) error {
+func (c *Container) Run(src string, cmds []string, hostname string, mem, swap, pids int, cpus float64) error {
 	defer func() {
 		if err := c.delete(); err != nil {
 			c.log.Error().Err(err).Msg("Clean up container failed")
@@ -93,6 +93,7 @@ func (c *Container) Run(src string, cmds []string, mem, swap, pids int, cpus flo
 	if cpus > 0 {
 		opts = append(opts, "--cpus="+strconv.FormatFloat(cpus, 'f', 1, 64))
 	}
+	opts = append(opts, "--hostname="+hostname)
 	args := append([]string{c.ID}, cmds...)
 	args = append(opts, args...)
 	args = append([]string{"container", "child"}, args...)
@@ -109,8 +110,8 @@ func (c *Container) Run(src string, cmds []string, mem, swap, pids int, cpus flo
 	return cmd.Run()
 }
 
-func (c *Container) ExecuteCommand(cmdArgs []string, mem, swap, pids int, cpus float64) error {
-	c.setHostname()
+func (c *Container) ExecuteCommand(cmdArgs []string, hostname string, mem, swap, pids int, cpus float64) error {
+	c.setHostname(hostname)
 	// Set network
 	unset, err := c.setNetworkNamespace()
 	if err != nil {
@@ -224,8 +225,9 @@ func (c *Container) setLimit(mem, swap, pids int, cpus float64) error {
 
 // setHostname sets container's hostname
 // Default: ID[:12]
-func (c *Container) setHostname() {
+func (c *Container) setHostname(hostname string) {
 	c.log.Info().Msg("Set hostname")
+	c.Config.Hostname = hostname
 	if c.Config.Hostname == "" {
 		c.Config.Hostname = c.ID[:12]
 	}

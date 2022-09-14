@@ -43,15 +43,16 @@ func main() {
 	defer images.SaveRepository()
 
 	app := &cli.App{
-		Name:    "koker",
-		Version: version,
+		Name:                 "koker",
+		Version:              version,
+		EnableBashCompletion: true,
 		Authors: []*cli.Author{
 			{
 				Name:  "Kien Nguyen-Tuan",
 				Email: "kiennt2609@gmail.com",
 			},
 		},
-		Usage: "Kien's Docker-like tool",
+		Usage: "Kien's mini Docker",
 		Flags: []cli.Flag{
 			&cli.BoolFlag{
 				Name:    "debug",
@@ -79,6 +80,10 @@ func main() {
 				Usage:     "Run a command in a new container",
 				ArgsUsage: "IMAGE [COMMAND]",
 				Flags: []cli.Flag{
+					&cli.StringFlag{
+						Name:  "hostname",
+						Usage: "Container hostname",
+					},
 					&cli.IntFlag{
 						Name:    "mem",
 						Aliases: []string{"m"},
@@ -127,7 +132,7 @@ func main() {
 					c := containers.NewContainer(utils.GenUID())
 
 					// Init container
-					if err := c.Run(image, commands, ctx.Int("mem"), ctx.Int("swap"),
+					if err := c.Run(image, commands, ctx.String("hostname"), ctx.Int("mem"), ctx.Int("swap"),
 						ctx.Int("pids"), ctx.Float64("cpus")); err != nil {
 						return fmt.Errorf("error initializing container: %v", err)
 					}
@@ -138,6 +143,10 @@ func main() {
 				Name:     "child",
 				HideHelp: true,
 				Flags: []cli.Flag{
+					&cli.StringFlag{
+						Name:  "hostname",
+						Usage: "Container hostname",
+					},
 					&cli.IntFlag{
 						Name:    "mem",
 						Aliases: []string{"m"},
@@ -178,7 +187,7 @@ func main() {
 					}
 
 					// Execute command
-					if err := c.ExecuteCommand(commands, ctx.Int("mem"), ctx.Int("swap"),
+					if err := c.ExecuteCommand(commands, ctx.String("hostname"), ctx.Int("mem"), ctx.Int("swap"),
 						ctx.Int("pids"), ctx.Float64("cpus")); err != nil {
 						return fmt.Errorf("error executing container command: %v", err)
 					}
