@@ -39,13 +39,6 @@ func main() {
 
 	rand.Seed(time.Now().UnixNano())
 
-	// Load image registry
-	if err := images.LoadRepository(); err != nil {
-		log.Fatal().Err(err).Msg("Unable to load image registry")
-	}
-
-	defer images.SaveRepository()
-
 	app := &cli.App{
 		Name:                 "koker",
 		Version:              version,
@@ -59,6 +52,12 @@ func main() {
 		Usage: "Kien's mini Docker",
 		Flags: []cli.Flag{
 			&cli.BoolFlag{
+				Name:    "quiet",
+				Aliases: []string{"q"},
+				Usage:   "Disable logging altogether (quiet mode)",
+				Value:   false,
+			},
+			&cli.BoolFlag{
 				Name:    "debug",
 				Aliases: []string{"D"},
 				Usage:   "Set log level to debug. You will see step-by-step what were executed",
@@ -66,13 +65,26 @@ func main() {
 			},
 		},
 		Before: func(ctx *cli.Context) error {
-			debug := ctx.Bool("debug")
-			if debug {
-				zerolog.SetGlobalLevel(zerolog.DebugLevel)
+			quiet := ctx.Bool("quiet")
+			if quiet {
+				zerolog.SetGlobalLevel(zerolog.Disabled)
+			} else {
+				debug := ctx.Bool("debug")
+				if debug {
+					zerolog.SetGlobalLevel(zerolog.DebugLevel)
+				}
 			}
+
+			// Load image registry
+			if err := images.LoadRepository(); err != nil {
+				log.Fatal().Err(err).Msg("Unable to load image registry")
+			}
+
 			return nil
 		},
 	}
+
+	defer images.SaveRepository()
 
 	containerCmd := &cli.Command{
 		Name:    "container",
