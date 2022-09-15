@@ -213,8 +213,9 @@ func main() {
 			},
 			{
 				Name:      "rm",
-				Usage:     "Remove a container",
-				ArgsUsage: "CONTAINERID",
+				Usage:     "Remove a container (WIP)",
+				HideHelp:  true,
+				ArgsUsage: "CONTAINER",
 				Flags: []cli.Flag{
 					&cli.BoolFlag{
 						Name:    "force",

@@ -67,7 +67,7 @@ USAGE:
 COMMANDS:
      run      Run a command in a new container
      child
-     rm       Remove a container
+     rm       Remove a container (WIP)
      ls       List running containers
      help, h  Shows a list of commands or help for one command
 
@@ -85,8 +85,8 @@ USAGE:
 
 COMMANDS:
      ls       List all available images
-     pull     Pull an image or a repository from a registry
-     rm       Remove a image
+     pull     Pull an image or a repository from a registry (using image's name)
+     rm       Remove a image (using image's name)
      help, h  Shows a list of commands or help for one command
 
 OPTIONS:
