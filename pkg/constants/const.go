@@ -8,7 +8,6 @@ const (
 	KokerImagesPath      = KokerHomePath + "/images"
 	KokerContainersPath  = KokerHomePath + "/containers"
 	KokerNetNsPath       = KokerHomePath + "/netns"
-	KokerImageLayersPath = KokerImagesPath + "/layers"
 	KokerBridgeName      = "koker0"
 	KokerBridgeDefaultIP = "172.69.0.1"
 	KokerVirtual0Pfx     = "veth0_"
