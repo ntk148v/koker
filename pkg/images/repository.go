@@ -62,6 +62,11 @@ func LoadRepository() error {
 // SaveRepository writes image repository to file
 func SaveRepository() error {
 	log.Info().Str("repository", repositoryPath).Msg("Save image repository to file")
+	lock.Lock()
+	defer lock.Unlock()
+	if imgRepo == nil {
+		imgRepo = make(repository)
+	}
 	b, err := json.Marshal(imgRepo)
 	if err != nil {
 		return errors.Wrap(err, "unable to marshal image regsitry")

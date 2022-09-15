@@ -265,7 +265,15 @@ func main() {
 				Usage: "Pull an image or a repository from a registry",
 				Flags: []cli.Flag{},
 				Action: func(ctx *cli.Context) error {
-					return nil
+					// Get image
+					args := ctx.Args()
+					if !args.Present() {
+						return errors.New("missing required arguments")
+					}
+					image := args.Get(0)
+
+					_, err := images.NewImage(image)
+					return err
 				},
 			},
 			{
