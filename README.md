@@ -6,7 +6,7 @@ Building a Docker-like tool - `koker` - Kien's mini docker.
 
 ## 1. Introduction
 
-- What is **Koker*?
+- What is **Koker**?
   - Koker is a tiny educational-purpose Docker-like tool, written in Golang.
   - Unlike Docker, Koker just uses a set of Linux's operating system primitives that provide the illusion of a container. Tt uses neither [containerd](https://containerd.io/) nor [runc](https://github.com/opencontainers/runc).
 - Why **Koker**?
