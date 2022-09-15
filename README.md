@@ -1,8 +1,21 @@
-# Koker
+<h1 align="center">Koker</h1>
 
-Building a Docker-like tool - `koker` - Kien's mini docker.
+<p align="center">Building a Docker-like tool - `koker` - Kien's mini docker.</p>
+
+<p align="center">
+    <a href="https://github.com/ntk148v/koker/blob/master/LICENSE">
+        <img alt="GitHub license" src="https://img.shields.io/github/license/ntk148v/koker?style=for-the-badge">
+    </a>
+    <a href="https://github.com/ntk148v/koker/stargazers"><img src="https://img.shields.io/github/stars/ntk148v/koker?colorA=192330&colorB=719cd6&style=for-the-badge"></a>
+    <a href="https://github.com/ntk148v/koker/issues"><img src="https://img.shields.io/github/issues/ntk148v/koker?colorA=192330&colorB=dbc074&style=for-the-badge"></a>
+    <a href="https://github.com/ntk148v/koker/contributors"><img src="https://img.shields.io/github/contributors/ntk148v/koker?colorA=192330&colorB=81b29a&style=for-the-badge"></a>
+<a href="https://github.com/ntk148v/koker/network/members"><img src="https://img.shields.io/github/forks/ntk148v/koker?colorA=192330&colorB=9d79d6&style=for-the-badge"></a>
+</p>
 
 > What I cannot create, I do not understand — Richard Feynman
+
+- [1. Introduction](#1-introduction)
+- [2. Getting started](#2-getting-started)
 
 ## 1. Introduction
 
