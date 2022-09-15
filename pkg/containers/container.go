@@ -23,7 +23,7 @@ import (
 	"github.com/ntk148v/koker/pkg/utils"
 )
 
-func GetAllContainers() ([]map[string]string, error) {
+func ListAllContainers() ([]map[string]string, error) {
 	all := make([]map[string]string, 0)
 	files, err := ioutil.ReadDir(constants.KokerContainersPath)
 	if err != nil {
@@ -35,7 +35,7 @@ func GetAllContainers() ([]map[string]string, error) {
 			continue
 		}
 
-		// Load container
+		// Load container config to retrieve config
 		c := NewContainer(file.Name())
 		if err := c.LoadConfig(); err != nil {
 			return all, err
@@ -74,23 +74,6 @@ func NewContainer(id string) *Container {
 		log:    log.With().Str("container", id).Logger(),
 		cg:     newCGroup(filepath.Join(constants.KokerApp, id)),
 	}
-}
-
-func (c *Container) getCmd() (string, error) {
-	var cmd string
-	pids, err := c.cg.getPids()
-	if err != nil {
-		return cmd, err
-	}
-	if len(pids) > 0 {
-		pid := pids[len(pids)-1]
-		cmdline, err := ioutil.ReadFile(filepath.Join("/proc", pid, "cmdline"))
-		if err != nil {
-			return cmd, err
-		}
-		cmd = string(bytes.TrimSpace(bytes.ReplaceAll(cmdline, []byte{0}, []byte{' '})))
-	}
-	return cmd, nil
 }
 
 func (c *Container) Run(src string, cmds []string, hostname string, mem, swap, pids int, cpus float64) error {
@@ -242,6 +225,43 @@ func (c *Container) ExecuteCommand(cmdArgs []string, hostname string, mem, swap,
 	return cmd.Run()
 }
 
+// LoadConfig reads container config file
+func (c *Container) LoadConfig() error {
+	c.log.Debug().Msg("Load container config from file")
+	conCfg := filepath.Join(constants.KokerContainersPath, c.ID, "config.json")
+
+	file, err := os.Open(conCfg)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+	configFile, err := v1.ParseConfigFile(file)
+	if err != nil {
+		return err
+	}
+	c.Config = configFile.Config.DeepCopy()
+	return nil
+}
+
+// getCmd returns the running command inside container
+func (c *Container) getCmd() (string, error) {
+	var cmd string
+	pids, err := c.cg.getPids()
+	if err != nil {
+		return cmd, err
+	}
+	if len(pids) > 0 {
+		pid := pids[len(pids)-1]
+		cmdline, err := ioutil.ReadFile(filepath.Join("/proc", pid, "cmdline"))
+		if err != nil {
+			return cmd, err
+		}
+		cmd = string(bytes.TrimSpace(bytes.ReplaceAll(cmdline, []byte{0}, []byte{' '})))
+	}
+	return cmd, nil
+}
+
+// copyNameServerConfig copies name resolver configurations
 func (c *Container) copyNameServerConfig() error {
 	c.log.Info().Msg("Copy nameserver config")
 	resolvFilePaths := []string{
@@ -261,6 +281,7 @@ func (c *Container) copyNameServerConfig() error {
 	return nil
 }
 
+// setLimit configures resource limit using cgroup
 func (c *Container) setLimit(mem, swap, pids int, cpus float64) error {
 	c.log.Info().Msg("Set container's limit using cgroup")
 	c.log.Debug().Msg("Set container's memory limit")
@@ -333,23 +354,6 @@ func (c *Container) mountOverlayFS(img *images.Image) (filesystem.Unmounter, err
 	return unmounter, c.copyImageConfig(img)
 }
 
-func (c *Container) LoadConfig() error {
-	c.log.Info().Msg("Load container config from file")
-	conCfg := filepath.Join(constants.KokerContainersPath, c.ID, "config.json")
-
-	file, err := os.Open(conCfg)
-	if err != nil {
-		return err
-	}
-	defer file.Close()
-	configFile, err := v1.ParseConfigFile(file)
-	if err != nil {
-		return err
-	}
-	c.Config = configFile.Config.DeepCopy()
-	return nil
-}
-
 func (c *Container) copyImageConfig(img *images.Image) error {
 	c.log.Debug().Str("image", img.Name).Msg("Copy container config from image config")
 	conCfg := filepath.Join(constants.KokerContainersPath, c.ID, "config.json")
@@ -416,7 +420,9 @@ func (c *Container) setupNetwork(bridge string) (filesystem.Unmounter, error) {
 	return unmount, nil
 }
 
+// setNetworkNamespace
 func (c *Container) setNetworkNamespace() (network.Unsetter, error) {
+	c.log.Debug().Msg("Set network namespace")
 	netns := filepath.Join(constants.KokerNetNsPath, c.ID)
 	return network.SetNetNSByFile(netns)
 }
