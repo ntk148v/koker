@@ -220,11 +220,11 @@ func main() {
 				Flags: []cli.Flag{},
 				Action: func(ctx *cli.Context) error {
 					// List all running containers
-					cs, err := containers.GetAllContainers()
+					cs, err := containers.ListAllContainers()
 					if err != nil {
-						return errors.Wrap(err, "unable to get all containers")
+						return errors.Wrap(err, "unable to list all containers")
 					}
-					return utils.GenTemplate("container", constants.ContainerTemplate, cs)
+					return utils.GenTemplate("container", constants.ContainersTemplate, cs)
 				},
 			},
 		},
@@ -240,7 +240,12 @@ func main() {
 				Usage: "List all available images",
 				Flags: []cli.Flag{},
 				Action: func(ctx *cli.Context) error {
-					return nil
+					// List all images
+					is, err := images.ListAllImages()
+					if err != nil {
+						return errors.Wrap(err, "unable to list all images")
+					}
+					return utils.GenTemplate("image", constants.ImagesTemplate, is)
 				},
 			},
 			{

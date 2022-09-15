@@ -39,7 +39,7 @@ func NewImage(src string) (*Image, error) {
 
 	return &Image{
 		Image:    img,
-		ID:       imgCfgFile.Config.Image,
+		ID:       imgCfgFile.Config.Image[8:],
 		Registry: tag.RegistryStr(),
 		Name:     tag.Name(),
 		Tag:      tag.TagStr(),

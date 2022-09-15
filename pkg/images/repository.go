@@ -7,17 +7,35 @@ import (
 	"path/filepath"
 	"sync"
 
+	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
 
 	"github.com/ntk148v/koker/pkg/constants"
 )
 
-var repositoryPath = filepath.Join(constants.KokerImagesPath, "repository.json")
+var (
+	repositoryPath = filepath.Join(constants.KokerImagesPath, "repository.json")
+	lock           = &sync.Mutex{}
+	imgRepo        repository
+)
 
-var lock = &sync.Mutex{}
+func ListAllImages() ([]map[string]string, error) {
+	all := make([]map[string]string, 0)
+	for k, v := range imgRepo {
+		tag, err := name.NewTag(v)
+		if err != nil {
+			return all, err
+		}
+		all = append(all, map[string]string{
+			"repository": tag.RepositoryStr(),
+			"tag":        tag.TagStr(),
+			"id":         k,
+		})
+	}
 
-var imgRepo repository
+	return all, nil
+}
 
 // LoadRepository creates image repository instance from file
 func LoadRepository() error {

@@ -25,10 +25,17 @@ const (
 	MaxProcessFilename   = "pids.max"
 	DefaultCfsPeriod     = 100000
 
-	ContainerTemplate = `
+	ContainersTemplate = `
 CONTAINER ID{{"\t\t"}}IMAGE       {{"\t\t"}}COMMAND
 {{ range $container := . }}
 {{ printf "%.12s" $container.id }}{{"\t\t"}}{{ printf "%.12s" $container.image }}{{"\t\t"}}{{ $container.cmd }}
+{{ end }}
+`
+
+	ImagesTemplate = `
+REPOSITORY{{"\t\t"}}TAG{{"\t\t"}}IMAGE ID
+{{ range $image := . }}
+{{ $image.repository }}{{"\t\t"}}{{ $image.tag }}{{"\t\t"}}{{ printf "%.12s" $image.id }}
 {{ end }}
 `
 )
