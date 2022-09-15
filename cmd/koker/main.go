@@ -6,6 +6,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
@@ -211,8 +212,9 @@ func main() {
 				},
 			},
 			{
-				Name:  "rm",
-				Usage: "Remove a container",
+				Name:      "rm",
+				Usage:     "Remove a container",
+				ArgsUsage: "CONTAINERID",
 				Flags: []cli.Flag{
 					&cli.BoolFlag{
 						Name:    "force",
@@ -261,9 +263,10 @@ func main() {
 				},
 			},
 			{
-				Name:  "pull",
-				Usage: "Pull an image or a repository from a registry",
-				Flags: []cli.Flag{},
+				Name:      "pull",
+				Usage:     "Pull an image or a repository from a registry (using image's name)",
+				ArgsUsage: "IMAGE",
+				Flags:     []cli.Flag{},
 				Action: func(ctx *cli.Context) error {
 					// Get image
 					args := ctx.Args()
@@ -277,8 +280,9 @@ func main() {
 				},
 			},
 			{
-				Name:  "rm",
-				Usage: "Remove a image",
+				Name:      "rm",
+				Usage:     "Remove a image (using image's name)",
+				ArgsUsage: "IMAGE",
 				Flags: []cli.Flag{
 					&cli.BoolFlag{
 						Name:    "force",
@@ -289,6 +293,18 @@ func main() {
 				},
 				Action: func(ctx *cli.Context) error {
 					// Remove image
+					args := ctx.Args()
+					if !args.Present() {
+						return errors.New("missing required arguments")
+					}
+					image := args.Get(0)
+
+					tag, err := name.NewTag(image)
+					if err != nil {
+						return err
+					}
+
+					images.DelImage(tag.Name())
 					return nil
 				},
 			},

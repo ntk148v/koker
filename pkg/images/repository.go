@@ -86,6 +86,15 @@ func GetImage(k string) (Metadata, bool) {
 }
 
 func DelImage(k string) {
+	// TODO(kiennt26): Check there is any container running from image
+	log.Info().Msg("Remove image")
+	img, exist := imgRepo.get(k)
+	if !exist {
+		log.Warn().Msg("Image doesn't exist, or maybe you're using image's id which is not supported yet")
+		return
+	}
+	// Delete directories
+	os.RemoveAll(filepath.Join(constants.KokerImagesPath, img.Manifest.Config.Digest.Hex))
 	imgRepo.del(k)
 }
 
