@@ -25,7 +25,7 @@ func main() {
 	zerolog.TimeFieldFormat = zerolog.TimeFormatUnix
 	// Default level is info, unless debug flag is present
 	zerolog.SetGlobalLevel(zerolog.InfoLevel)
-	// NOTE(kiennt2609): Pretty logging, log a human-friendly,
+	// NOTE(kiennt26): Pretty logging, log a human-friendly,
 	// colorized output because I like it!
 	log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stderr})
 
@@ -149,7 +149,7 @@ func main() {
 
 					// Init container
 					if err := c.Run(image, commands, ctx.String("hostname"), ctx.Int("mem"), ctx.Int("swap"),
-						ctx.Int("pids"), ctx.Float64("cpus")); err != nil {
+						ctx.Int("pids"), ctx.Float64("cpus"), ctx.Bool("quiet"), ctx.Bool("debug")); err != nil {
 						return fmt.Errorf("error initializing container: %v", err)
 					}
 					return nil

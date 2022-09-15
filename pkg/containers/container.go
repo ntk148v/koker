@@ -76,7 +76,7 @@ func NewContainer(id string) *Container {
 	}
 }
 
-func (c *Container) Run(src string, cmds []string, hostname string, mem, swap, pids int, cpus float64) error {
+func (c *Container) Run(src string, cmds []string, hostname string, mem, swap, pids int, cpus float64, quiet, debug bool) error {
 	defer func() {
 		if err := c.delete(); err != nil {
 			c.log.Error().Err(err).Msg("Clean up container failed")
@@ -125,6 +125,16 @@ func (c *Container) Run(src string, cmds []string, hostname string, mem, swap, p
 	args := append([]string{c.ID}, cmds...)
 	args = append(opts, args...)
 	args = append([]string{"container", "child"}, args...)
+	// NOTE(kiennt26): Have to pass quiet and debug again as we re-run ourselves
+	// If not set, quiet and debug mode won't work properly.
+	if quiet {
+		args = append([]string{"-q"}, args...)
+	} else {
+		if debug {
+			args = append([]string{"-D"}, args...)
+		}
+	}
+
 	// /proc/self/exe - a special file containing an in-memory image of the current executable.
 	// In other words, we re-run ourselves, but passing childs as the first agrument.
 	cmd := reexec.Command(args...)
