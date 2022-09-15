@@ -34,7 +34,7 @@ func ListAllImages() ([]map[string]string, error) {
 
 // LoadRepository creates image repository instance from file
 func LoadRepository() error {
-	log.Info().Str("registry", repositoryPath).Msg("Load image registry from file")
+	log.Info().Str("repository", repositoryPath).Msg("Load image repository from file")
 	if imgRepo == nil {
 		lock.Lock()
 		defer lock.Unlock()
@@ -44,30 +44,30 @@ func LoadRepository() error {
 			return nil
 		}
 
-		log.Debug().Msg("Load image registry")
+		log.Debug().Msg("Load image repository")
 		data, err := ioutil.ReadFile(repositoryPath)
 		if err != nil {
-			return errors.Wrap(err, "unable to load image registry")
+			return errors.Wrap(err, "unable to load image repository")
 		}
 
 		if err := json.Unmarshal(data, &imgRepo); err != nil {
-			return errors.Wrap(err, "unable to marshal image registry")
+			return errors.Wrap(err, "unable to marshal image repository")
 		}
 	} else {
-		log.Debug().Msg("Image registry already loaded")
+		log.Debug().Msg("Image repository already loaded")
 	}
 	return nil
 }
 
-// SaveRepository writes image registry to file
+// SaveRepository writes image repository to file
 func SaveRepository() error {
-	log.Info().Str("repository", repositoryPath).Msg("Save image registry to file")
+	log.Info().Str("repository", repositoryPath).Msg("Save image repository to file")
 	b, err := json.Marshal(imgRepo)
 	if err != nil {
 		return errors.Wrap(err, "unable to marshal image regsitry")
 	}
 	if err = ioutil.WriteFile(repositoryPath, b, 0644); err != nil {
-		return errors.Wrap(err, "unable to save registry to file")
+		return errors.Wrap(err, "unable to save repository to file")
 	}
 	return nil
 }
