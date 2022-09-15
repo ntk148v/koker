@@ -98,12 +98,6 @@ func (c *Container) Run(src string, cmds []string, hostname string, mem, swap, p
 	if err != nil {
 		return errors.Wrap(err, "unable to get image")
 	}
-	// Check image exist
-	if _, exist := images.GetImage(img.ID); !exist {
-		if err := img.Download(); err != nil {
-			return errors.Wrap(err, "unable to download image's layers")
-		}
-	}
 
 	// Mount overlayfs
 	unmount, err := c.mountOverlayFS(img)
@@ -328,23 +322,16 @@ func (c *Container) delete() error {
 // mountOverlayFS mounts filesystem for Container from an Image.
 // It uses overlayFS for union mount of multiple layers.
 func (c *Container) mountOverlayFS(img *images.Image) (filesystem.Unmounter, error) {
-	c.log.Info().Str("image", img.Name).
+	c.log.Info().Str("image", img.Metadata.Name).
 		Msg("Mount filesystem for container from an image")
 	if err := os.MkdirAll(c.RootFS, 0700); err != nil {
 		return nil, errors.Wrapf(err, "can't create %s directory", c.RootFS)
 	}
 
-	imgLayers, err := img.Layers()
-	if err != nil {
-		return nil, errors.Wrap(err, "unable to get image layers")
-	}
+	imgLayers := img.Metadata.Manifest.Layers
 	layers := make([]string, 0)
-	for i := range imgLayers {
-		digest, err := imgLayers[i].Digest()
-		if err != nil {
-			return nil, err
-		}
-		layers = append(layers, filepath.Join(constants.KokerImageLayersPath, digest.Hex))
+	for _, i := range imgLayers {
+		layers = append(layers, filepath.Join(constants.KokerImagesPath, img.Metadata.Digest, i.Digest.Hex))
 	}
 	unmounter, err := filesystem.OverlayMount(c.RootFS, layers, false)
 	if err != nil {
@@ -355,14 +342,10 @@ func (c *Container) mountOverlayFS(img *images.Image) (filesystem.Unmounter, err
 }
 
 func (c *Container) copyImageConfig(img *images.Image) error {
-	c.log.Debug().Str("image", img.Name).Msg("Copy container config from image config")
+	c.log.Debug().Str("image", img.Metadata.Repository).Msg("Copy container config from image config")
+	imgCfg := filepath.Join(constants.KokerImagesPath, img.Metadata.Digest, "config.json")
 	conCfg := filepath.Join(constants.KokerContainersPath, c.ID, "config.json")
-	data, err := img.RawConfigFile()
-	if err != nil {
-		return err
-	}
-
-	return ioutil.WriteFile(conCfg, data, 0655)
+	return utils.CopyFile(imgCfg, conCfg)
 }
 
 // setupNetwork configures network for the container

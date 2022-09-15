@@ -8,6 +8,7 @@ import (
 	"math/rand"
 	"os"
 	"path/filepath"
+	"strings"
 	"text/template"
 
 	"github.com/rs/xid"
@@ -71,10 +72,17 @@ func CopyFile(src, dst string) error {
 }
 
 // Extract untars both .tar and .tar.gz files.
-func Extract(reader io.Reader, target string, gz bool) error {
+func Extract(tarball, target string) error {
+	reader, err := os.Open(tarball)
+	if err != nil {
+		return err
+	}
+	defer reader.Close()
+
 	var tarReader *tar.Reader
 
-	if gz {
+	// Handle special case
+	if strings.HasSuffix(tarball, "gz") {
 		zipReader, err := gzip.NewReader(reader)
 		if err != nil {
 			return err

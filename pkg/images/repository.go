@@ -7,7 +7,6 @@ import (
 	"path/filepath"
 	"sync"
 
-	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
 
@@ -15,22 +14,18 @@ import (
 )
 
 var (
-	repositoryPath = filepath.Join(constants.KokerImagesPath, "repository.json")
+	repositoryPath = filepath.Join(constants.KokerImagesPath, "repositories.json")
 	lock           = &sync.Mutex{}
 	imgRepo        repository
 )
 
 func ListAllImages() ([]map[string]string, error) {
 	all := make([]map[string]string, 0)
-	for k, v := range imgRepo {
-		tag, err := name.NewTag(v)
-		if err != nil {
-			return all, err
-		}
+	for _, v := range imgRepo {
 		all = append(all, map[string]string{
-			"repository": tag.RepositoryStr(),
-			"tag":        tag.TagStr(),
-			"id":         k,
+			"repository": v.Repository,
+			"tag":        v.Tag,
+			"id":         v.ID,
 		})
 	}
 
@@ -77,11 +72,11 @@ func SaveRepository() error {
 	return nil
 }
 
-func SetImage(k, v string) {
+func SetImage(k string, v Metadata) {
 	imgRepo.set(k, v)
 }
 
-func GetImage(k string) (string, bool) {
+func GetImage(k string) (Metadata, bool) {
 	return imgRepo.get(k)
 }
 
@@ -89,9 +84,9 @@ func DelImage(k string) {
 	imgRepo.del(k)
 }
 
-type repository map[string]string
+type repository map[string]Metadata
 
-func (r repository) set(k, v string) {
+func (r repository) set(k string, v Metadata) {
 	r[k] = v
 }
 
@@ -99,7 +94,7 @@ func (r repository) del(k string) {
 	delete(r, k)
 }
 
-func (r repository) get(k string) (string, bool) {
+func (r repository) get(k string) (Metadata, bool) {
 	v, ok := r[k]
 	return v, ok
 }

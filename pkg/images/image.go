@@ -1,11 +1,14 @@
 package images
 
 import (
+	"io/ioutil"
+	"os"
 	"path/filepath"
 
 	"github.com/google/go-containerregistry/pkg/crane"
 	"github.com/google/go-containerregistry/pkg/name"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
+	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 
@@ -14,12 +17,18 @@ import (
 )
 
 type Image struct {
-	v1.Image
-	ID       string
-	Registry string
-	Name     string
-	Tag      string
+	Metadata Metadata
 	log      zerolog.Logger
+}
+
+type Metadata struct {
+	ID         string       `json:"id"`
+	Digest     string       `json:"digest"`
+	Manifest   *v1.Manifest `json:"manifest"`
+	Registry   string       `json:"registry"`
+	Repository string       `json:"repository"`
+	Name       string       `json:"name"`
+	Tag        string       `json:"tag"`
 }
 
 // NewImage pulls image, constructs and returns a new Image
@@ -30,51 +39,104 @@ func NewImage(src string) (*Image, error) {
 		return nil, err
 	}
 
-	img, err := crane.Pull(tag.Name())
-	if err != nil {
-		return nil, err
+	var img Image
+	img.log = log.With().Str("image", tag.Name()).Logger()
+
+	// Check image exist
+	metadata, exist := GetImage(tag.Name())
+	if !exist {
+		if err := img.Download(tag); err != nil {
+			return nil, errors.Wrap(err, "unable to pull image")
+		}
+	} else {
+		img.log.Info().Msg("Image exists, reuse")
+		img.Metadata = metadata
 	}
 
-	imgCfgFile, _ := img.ConfigFile()
-
-	return &Image{
-		Image:    img,
-		ID:       imgCfgFile.Config.Image[8:],
-		Registry: tag.RegistryStr(),
-		Name:     tag.Name(),
-		Tag:      tag.TagStr(),
-		log:      log.With().Str("image", src).Logger(),
-	}, nil
+	return &img, nil
 }
 
-// Download downloads image's layers
-func (i *Image) Download() error {
-	i.log.Info().Str("registry", i.Registry).Msg("Download image from registry")
-	layers, err := i.Layers()
+// Download downloads and extract image's layers
+func (i *Image) Download(tag name.Tag) error {
+	i.log.Info().Msg("Download image from registry")
+	i.log.Debug().Msg("Pull image's metadata")
+	img, err := crane.Pull(tag.Name())
+	if err != nil {
+		return errors.Wrap(err, "unable to pull image metadata")
+	}
+
+	// Get manifest
+	manifest, err := img.Manifest()
 	if err != nil {
 		return err
 	}
 
-	for _, layer := range layers {
-		digest, err := layer.Digest()
-		if err != nil {
-			return err
-		}
+	// Get image's id
+	imgCfg, _ := img.ConfigFile()
 
-		rc, err := layer.Uncompressed()
-		if err != nil {
-			return err
-		}
-		defer rc.Close()
+	// Store image metadata
+	imgSHA := manifest.Config.Digest.Hex
+	i.Metadata = Metadata{
+		ID:         imgCfg.Config.Image[8:],
+		Digest:     imgSHA,
+		Tag:        tag.TagStr(),
+		Repository: tag.RepositoryStr(),
+		Name:       tag.Name(),
+		Registry:   tag.RegistryStr(),
+		Manifest:   manifest,
+	}
 
-		err = utils.Extract(rc, filepath.Join(constants.KokerImageLayersPath,
-			digest.Hex), false)
-		if err != nil {
-			return err
+	// Create temp
+	tmpPath := filepath.Join(constants.KokerTempPath, imgSHA)
+	_ = utils.CreateDir(tmpPath)
+	tarball := filepath.Join(tmpPath, "package.tar")
+	defer func() {
+		// Cleanup
+		i.log.Debug().Msg("Delete temp image files")
+		os.RemoveAll(tmpPath)
+	}()
+
+	// Save image as tar file
+	i.log.Debug().Str("tarball", tarball).Msg("Save image as tar file")
+	if err := crane.Save(img, imgSHA, tarball); err != nil {
+		return errors.Wrap(err, "unable to save image as tar file")
+	}
+
+	// Untar tarball
+	i.log.Debug().Str("tarball", tarball).Msg("Extract tar file")
+	if err := utils.Extract(tarball, tmpPath); err != nil {
+		return err
+	}
+
+	imgPath := filepath.Join(constants.KokerImagesPath, imgSHA)
+	_ = utils.CreateDir(imgPath)
+
+	// Dump image config file
+	configPath := filepath.Join(imgPath, "config.json")
+	data, err := img.RawConfigFile()
+	if err != nil {
+		return err
+	}
+
+	if err := ioutil.WriteFile(configPath, data, 0655); err != nil {
+		return err
+	}
+
+	// Process tarball's layers
+	log.Debug().Str("tarball", tarball).
+		Msg("Process tarball's layers")
+	// untar the layer files
+	for _, layer := range manifest.Layers {
+		imgLayerPath := filepath.Join(imgPath, layer.Digest.Hex)
+		log.Debug().Str("tarball", tarball).
+			Str("layerdir", imgLayerPath).
+			Msg("Extract layer to directory")
+		_ = utils.CreateDir(imgLayerPath)
+		if err := utils.Extract(filepath.Join(tmpPath, layer.Digest.Hex+".tar.gz"), imgLayerPath); err != nil {
+			return errors.Wrap(err, "unable to extract tarball's layer")
 		}
 	}
 
-	// Save to registry
-	SetImage(i.ID, i.Name)
+	SetImage(tag.Name(), i.Metadata)
 	return nil
 }
