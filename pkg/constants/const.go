@@ -1,6 +1,7 @@
 package constants
 
 const (
+	// General
 	KokerApp             = "koker"
 	KokerHomePath        = "/var/lib/" + KokerApp
 	KokerTempPath        = KokerHomePath + "/tmp"
@@ -25,13 +26,13 @@ const (
 	MaxProcessFilename   = "pids.max"
 	DefaultCfsPeriod     = 100000
 
+	// Template
 	ContainersTemplate = `
 CONTAINER ID{{"\t\t"}}IMAGE       {{"\t\t"}}COMMAND
 {{ range $container := . }}
 {{ printf "%.12s" $container.id }}{{"\t\t"}}{{ printf "%.12s" $container.image }}{{"\t\t"}}{{ $container.cmd }}
 {{ end }}
 `
-
 	ImagesTemplate = `
 REPOSITORY{{"\t\t"}}TAG{{"\t\t"}}IMAGE ID
 {{ range $image := . }}
