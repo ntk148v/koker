@@ -9,10 +9,13 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"syscall"
 	"text/template"
 
+	"github.com/pkg/errors"
 	"github.com/rs/xid"
 	"github.com/rs/zerolog/log"
+	"golang.org/x/sys/unix"
 
 	"github.com/ntk148v/koker/pkg/constants"
 )
@@ -162,4 +165,39 @@ func GenTemplate(name, tempStr string, input any) error {
 		return err
 	}
 	return temp.Execute(os.Stdout, input)
+}
+
+// SetNamespace calls setns syscall for set of flags. It changes
+// current process namespace to namespace of another process which
+// can be specified by pid.
+//
+// NOTE: A process may not be reassociated with a new mount namespace
+// if it is multi-threaded. Changing the mount namespace requires that
+// the caller possess both CAP_SYS_CHROOT and CAP_SYS_ADMIN capabilities
+// in its own user namespace and CAP_SYS_ADMIN in the target mount namespace.
+func SetNamespace(pid string, flag int) error {
+	nsBase := filepath.Join("/proc", pid, "ns")
+	ns := map[int]string{
+		syscall.CLONE_NEWIPC: "ipc",
+		syscall.CLONE_NEWNS:  "mnt",
+		syscall.CLONE_NEWNET: "net",
+		syscall.CLONE_NEWPID: "pid",
+		syscall.CLONE_NEWUTS: "uts",
+	}
+
+	for k, v := range ns {
+		if flag&k == 0 {
+			continue
+		}
+		nsFile, err := os.Open(filepath.Join(nsBase, v))
+		if err != nil {
+			return errors.Wrapf(err, "can't open %s", nsFile)
+		}
+
+		if err := unix.Setns(int(nsFile.Fd()), k); err != nil {
+			return errors.Wrapf(err, "can't setns to %s", v)
+		}
+	}
+
+	return nil
 }

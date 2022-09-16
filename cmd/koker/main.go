@@ -203,10 +203,10 @@ func main() {
 						return err
 					}
 
-					// Execute command
-					if err := c.ExecuteCommand(commands, ctx.String("hostname"), ctx.Int("mem"), ctx.Int("swap"),
+					// Run child command
+					if err := c.RunChild(commands, ctx.String("hostname"), ctx.Int("mem"), ctx.Int("swap"),
 						ctx.Int("pids"), ctx.Float64("cpus")); err != nil {
-						return fmt.Errorf("error executing container command: %v", err)
+						return errors.Wrap(err, "error running child command")
 					}
 					return nil
 				},
@@ -240,6 +240,31 @@ func main() {
 						return errors.Wrap(err, "unable to list all containers")
 					}
 					return utils.GenTemplate("container", constants.ContainersTemplate, cs)
+				},
+			},
+			{
+				Name:  "exec",
+				Usage: "Run a command inside a running container",
+				Flags: []cli.Flag{},
+				Action: func(ctx *cli.Context) error {
+					args := ctx.Args()
+					container := args.Get(0)
+
+					var commands []string
+					if len(args.Slice()) >= 2 {
+						commands = args.Slice()[1:]
+					}
+
+					c := containers.NewContainer(container)
+					if err := c.LoadConfig(); err != nil {
+						return err
+					}
+
+					// Execute command
+					if err := c.ExecuteCommand(commands, false); err != nil {
+						return errors.Wrap(err, "error executing container command")
+					}
+					return nil
 				},
 			},
 		},

@@ -148,18 +148,10 @@ func (c *Container) Run(src string, cmds []string, hostname string, mem, swap, p
 	return cmd.Run()
 }
 
-func (c *Container) ExecuteCommand(cmdArgs []string, hostname string, mem, swap, pids int, cpus float64) error {
+// RunChild runs child command which is called from Run()
+func (c *Container) RunChild(cmdArgs []string, hostname string, mem, swap, pids int, cpus float64) error {
+	// Set hostname
 	c.setHostname(hostname)
-	// Set network
-	unset, err := c.setNetworkNamespace()
-	if err != nil {
-		return errors.Wrap(err, "unable to set network namespace")
-	}
-	defer func() {
-		if err := unset(); err != nil {
-			c.log.Error().Err(err).Msg("Unset network namespace failed")
-		}
-	}()
 
 	// Setup cgroups
 	if err := c.cg.addProcess(); err != nil {
@@ -173,6 +165,35 @@ func (c *Container) ExecuteCommand(cmdArgs []string, hostname string, mem, swap,
 	// Copy nameserver
 	if err := c.copyNameServerConfig(); err != nil {
 		return errors.Wrap(err, "unable to copy name server config")
+	}
+
+	// Execute command
+	return c.ExecuteCommand(cmdArgs, true)
+}
+
+func (c *Container) ExecuteCommand(cmdArgs []string, child bool) error {
+	c.log.Info().Msg("Execute command")
+	if child {
+		// Set network namespace
+		unset, err := c.setNetworkNamespace()
+		if err != nil {
+			return errors.Wrap(err, "unable to set network namespace")
+		}
+		defer func() {
+			if err := unset(); err != nil {
+				c.log.Error().Err(err).Msg("Unset network namespace failed")
+			}
+		}()
+	} else {
+		pid, err := c.getMainPid()
+		if err != nil {
+			return err
+		}
+
+		// Set namespace
+		if err := utils.SetNamespace(pid, syscall.CLONE_NEWUTS|syscall.CLONE_NEWIPC|syscall.CLONE_NEWPID|syscall.CLONE_NEWNET); err != nil {
+			return err
+		}
 	}
 
 	// Change root
@@ -189,22 +210,24 @@ func (c *Container) ExecuteCommand(cmdArgs []string, hostname string, mem, swap,
 			c.Config.WorkingDir)
 	}
 
-	// Mount necessaries
-	mountPoints := []filesystem.MountOption{
-		{Source: "tmpfs", Target: "dev", Type: "tmpfs"},
-		{Source: "proc", Target: "proc", Type: "proc"},
-		{Source: "sysfs", Target: "sys", Type: "sysfs"},
-		{Source: "tmpfs", Target: "tmp", Type: "tmpfs"},
-	}
-	unmount, err := filesystem.Mount(mountPoints...)
-	if err != nil {
-		return err
-	}
-	defer func() {
-		if err := unmount(); err != nil {
-			c.log.Error().Err(err).Msg("Unmount mountpoints (proc, sys,tmp, dev) failed")
+	if child {
+		// Mount necessaries
+		mountPoints := []filesystem.MountOption{
+			{Source: "tmpfs", Target: "dev", Type: "tmpfs"},
+			{Source: "proc", Target: "proc", Type: "proc"},
+			{Source: "sysfs", Target: "sys", Type: "sysfs"},
+			{Source: "tmpfs", Target: "tmp", Type: "tmpfs"},
 		}
-	}()
+		unmount, err := filesystem.Mount(mountPoints...)
+		if err != nil {
+			return err
+		}
+		defer func() {
+			if err := unmount(); err != nil {
+				c.log.Error().Err(err).Msg("Unmount mountpoints (proc, sys,tmp, dev) failed")
+			}
+		}()
+	}
 
 	var cmd *exec.Cmd
 
@@ -247,21 +270,38 @@ func (c *Container) LoadConfig() error {
 	return nil
 }
 
+// getMainPid returns the main process id
+func (c *Container) getMainPid() (string, error) {
+	var (
+		pid string
+		err error
+	)
+	pids, err := c.cg.getPids()
+	if err != nil {
+		return pid, err
+	}
+
+	if len(pids) > 0 {
+		pid = pids[len(pids)-1]
+	} else {
+		err = errors.New("no process id found")
+	}
+
+	return pid, err
+}
+
 // getCmd returns the running command inside container
 func (c *Container) getCmd() (string, error) {
 	var cmd string
-	pids, err := c.cg.getPids()
+	pid, err := c.getMainPid()
 	if err != nil {
 		return cmd, err
 	}
-	if len(pids) > 0 {
-		pid := pids[len(pids)-1]
-		cmdline, err := ioutil.ReadFile(filepath.Join("/proc", pid, "cmdline"))
-		if err != nil {
-			return cmd, err
-		}
-		cmd = string(bytes.TrimSpace(bytes.ReplaceAll(cmdline, []byte{0}, []byte{' '})))
+	cmdline, err := ioutil.ReadFile(filepath.Join("/proc", pid, "cmdline"))
+	if err != nil {
+		return cmd, err
 	}
+	cmd = string(bytes.TrimSpace(bytes.ReplaceAll(cmdline, []byte{0}, []byte{' '})))
 	return cmd, nil
 }
 

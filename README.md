@@ -16,6 +16,7 @@
 
 - [1. Introduction](#1-introduction)
 - [2. Getting started](#2-getting-started)
+- [3. Examples](#3-examples)
 
 ## 1. Introduction
 
@@ -82,6 +83,7 @@ COMMANDS:
      child
      rm       Remove a container (WIP)
      ls       List running containers
+     exec     Run a command inside a running container
      help, h  Shows a list of commands or help for one command
 
 OPTIONS:
@@ -105,3 +107,5 @@ COMMANDS:
 OPTIONS:
    --help, -h  show help (default: false)
 ```
+
+## 3. Examples
