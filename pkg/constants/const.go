@@ -29,7 +29,7 @@ const (
 	ContainersTemplate = `
 CONTAINER ID{{"\t\t"}}IMAGE       {{"\t\t"}}COMMAND
 {{ range $container := . }}
-{{ printf "%.12s" $container.id }}{{"\t\t"}}{{ printf "%.12s" $container.image }}{{"\t\t"}}{{ $container.cmd }}
+{{ $container.id }}{{"\t"}}{{ printf "%.12s" $container.image }}{{"\t\t"}}{{ $container.cmd }}
 {{ end }}
 `
 	ImagesTemplate = `

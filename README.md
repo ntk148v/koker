@@ -40,12 +40,16 @@
 
 - Install:
 
-```bash
+```shell
 $ go get -u github.com/ntk148v/koker
+# Or you can build yourself
+$ git clone https://github.com/ntk148v/koker.git
+$ go build -ldflags "-s -w" -o koker cmd/koker/main.go
+$ ./koker --help
 ```
 
-```
-$ koker --help
+```shell
+$ sudo koker --help
 NAME:
    koker - Kien's mini Docker
 
@@ -70,8 +74,8 @@ GLOBAL OPTIONS:
    --version, -v  print the version (default: false)
 ```
 
-```
-$ koker container --help
+```shell
+$ sudo koker container --help
 NAME:
    koker container - Manage container
 
@@ -90,8 +94,8 @@ OPTIONS:
    --help, -h  show help (default: false)
 ```
 
-```
-$ koker image --help
+```shell
+$ sudo koker image --help
 NAME:
    koker image - Manage images
 
@@ -109,3 +113,124 @@ OPTIONS:
 ```
 
 ## 3. Examples
+
+- Start container and execute command.
+
+```shell
+$ sudo koker -D container run --hostname test --mem 1024 alpine sh # Enable debugging
+
+11:08AM INF Load image repository from file repository=/var/lib/koker/images/repositories.json
+11:08AM DBG Load image repository
+11:08AM DBG Check default bridge is up or not bridge=koker0
+11:08AM INF Setup network for container container=ccjuq1p3l1hn8clpgib0
+11:08AM DBG Setup virtual ethernet peer=veth1_ccjumf9 virt=veth0_ccjumf9
+11:08AM DBG Set the master of the link device link=veth0_ccjumf9 master=koker0
+11:08AM DBG Mount new network namespace netns=/var/lib/koker/netns/ccjuq1p3l1hn8clpgib0
+11:08AM DBG Call syscall unshare CLONE_NEWNET netns=/var/lib/koker/netns/ccjuq1p3l1hn8clpgib0
+11:08AM DBG Mount new network namespace netns=/var/lib/koker/netns/ccjuq1p3l1hn8clpgib0
+11:08AM DBG Mount target source=/proc/self/ns/net target=/var/lib/koker/netns/ccjuq1p3l1hn8clpgib0
+11:08AM DBG Set network namespace netns=/var/lib/koker/netns/ccjuq1p3l1hn8clpgib0
+11:08AM DBG Put link device into a new network namespace link=veth1_ccjumf9 netns=/var/lib/koker/netns/ccjuq1p3l1hn8clpgib0
+11:08AM DBG Set network namespace by file netns=/var/lib/koker/netns/ccjuq1p3l1hn8clpgib0
+11:08AM DBG Change the name of the link device newname=eth0 oldname=veth1_ccjumf9
+11:08AM DBG Add IP address to the ip device ip=172.69.216.38/16 link=eth0
+11:08AM DBG Enable the link device link=eth0
+11:08AM DBG Set gateway for the link device gateway=172.69.0.1 link=eth0
+11:08AM DBG Enable the link device link=lo
+11:08AM INF Construct new Image instance image=alpine
+11:08AM INF Image exists, reuse image=index.docker.io/library/alpine:latest
+11:08AM INF Mount filesystem for container from an image container=ccjuq1p3l1hn8clpgib0 image=index.docker.io/library/alpine:latest
+11:08AM DBG Mount target source=none target=/var/lib/koker/containers/ccjuq1p3l1hn8clpgib0/mnt
+11:08AM DBG Copy container config from image config container=ccjuq1p3l1hn8clpgib0 image=library/alpine
+11:08AM INF Load image repository from file repository=/var/lib/koker/images/repositories.json
+11:08AM DBG Load image repository
+11:08AM DBG Load container config from file container=ccjuq1p3l1hn8clpgib0
+11:08AM INF Set hostname container=ccjuq1p3l1hn8clpgib0
+11:08AM INF Set container's limit using cgroup container=ccjuq1p3l1hn8clpgib0
+11:08AM DBG Set container's memory limit container=ccjuq1p3l1hn8clpgib0
+11:08AM DBG Set container's pids limit container=ccjuq1p3l1hn8clpgib0
+11:08AM DBG Set container's cpus limit container=ccjuq1p3l1hn8clpgib0
+11:08AM INF Copy nameserver config container=ccjuq1p3l1hn8clpgib0
+11:08AM INF Execute command container=ccjuq1p3l1hn8clpgib0
+11:08AM DBG Set network namespace container=ccjuq1p3l1hn8clpgib0
+11:08AM DBG Set network namespace by file netns=/var/lib/koker/netns/ccjuq1p3l1hn8clpgib0
+11:08AM DBG Mount target source=tmpfs target=dev
+11:08AM DBG Mount target source=proc target=proc
+11:08AM DBG Mount target source=sysfs target=sys
+11:08AM DBG Mount target source=tmpfs target=tmp
+11:08AM DBG Execute command command=sh container=ccjuq1p3l1hn8clpgib0
+/ #
+# Hit <Ctrl+c>
+11:09AM DBG Unmount target source=tmpfs target=dev
+11:09AM DBG Unmount target source=proc target=proc
+11:09AM DBG Unmount target source=sysfs target=sys
+11:09AM DBG Unmount target source=tmpfs target=tmp
+11:09AM INF Save image repository to file repository=/var/lib/koker/images/repositories.json
+11:09AM DBG Unmount target source=none target=/var/lib/koker/containers/ccjuq1p3l1hn8clpgib0/mnt
+11:09AM DBG Unmount target source=/proc/self/ns/net target=/var/lib/koker/netns/ccjuq1p3l1hn8clpgib0
+11:09AM INF Delete container container=ccjuq1p3l1hn8clpgib0
+11:09AM DBG Remove container's directory container=ccjuq1p3l1hn8clpgib0
+11:09AM DBG Remove container's network namespace container=ccjuq1p3l1hn8clpgib0
+11:09AM DBG Remove container cgroups container=ccjuq1p3l1hn8clpgib0
+11:09AM INF Save image repository to file repository=/var/lib/koker/images/repositories.json
+```
+
+- Pull and list image(s).
+
+```shell
+$ sudo koker -D image pull alpine
+$ sudo koker -D image ls
+11:13AM INF Load image repository from file repository=/var/lib/koker/images/repositories.json
+11:13AM DBG Load image repository
+
+REPOSITORY              TAG             IMAGE ID
+
+jwilder/whoami          latest          4a4c1589a078
+
+library/alpine          3.16.2          0261ca8a4a79
+
+library/alpine          edge            9a2e669787f4
+
+library/alpine          latest          0261ca8a4a79
+
+11:13AM INF Save image repository to file repository=/var/lib/koker/images/repositories.json
+```
+
+- List all available containers (run a container then run the above command in the another session).
+
+```shell
+$ koker -D container ls
+11:11AM INF Load image repository from file repository=/var/lib/koker/images/repositories.json
+11:11AM DBG Load image repository
+11:11AM DBG Load container config from file container=ccjuo013l1hkmh7sk540
+
+CONTAINER ID            IMAGE                   COMMAND
+
+ccjuq1p3l1hn8clpgib0    0261ca8a4a79            sh
+
+11:11AM INF Save image repository to file repository=/var/lib/koker/images/repositories.json
+```
+
+- Run a command inside a running container.
+
+```shell
+$ sudo koker -D container exec ccjuq1p3l1hn8clpgib0 sh
+11:17AM INF Load image repository from file repository=/var/lib/koker/images/repositories.json
+11:17AM DBG Load image repository
+11:17AM DBG Load container config from file container=ccjuq1p3l1hn8clpgib0
+11:17AM INF Execute command container=ccjuq1p3l1hn8clpgib0
+11:17AM DBG Execute command command=sh container=ccjuq1p3l1hn8clpgib0
+/ #
+```
+
+- If you find logging is annoying, ignore them with "--quiet" option.
+
+```shell
+$ sudo koker -q container ls
+CONTAINER ID            IMAGE                   COMMAND
+
+ccjuq1p3l1hn8clpgib0    0261ca8a4a79            sh
+
+$ sudo koker -q container run --hostname test --mem 1024 alpine sh
+/ #
+```
