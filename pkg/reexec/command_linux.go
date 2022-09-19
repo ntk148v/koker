@@ -19,7 +19,7 @@ func Command(args ...string) *exec.Cmd {
 		Path: Self(),
 		Args: append([]string{Self()}, args...),
 		SysProcAttr: &syscall.SysProcAttr{
-			Pdeathsig: syscall.SIGTERM,
+			Pdeathsig: syscall.SIGTERM | syscall.SIGINT | syscall.SIGKILL,
 		},
 	}
 }
