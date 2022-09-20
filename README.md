@@ -45,10 +45,13 @@
 ```shell
 $ go get -u github.com/ntk148v/koker
 # Or you can build yourself
-$ git clone https://github.com/ntk148v/koker.git
-$ go build -ldflags "-s -w" -o koker cmd/koker/main.go
-$ ./koker --help
+$ git clone https://github.com/ntk148v/koker.git koker
+$ cd koker
+$ make build
+$ sudo ./koker --help
 ```
+
+- You can also download binary file in [releases](https://github.com/ntk148v/koker/releases).
 
 - Usage:
   - Note that you must have root permission to execute koker.

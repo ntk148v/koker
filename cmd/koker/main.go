@@ -19,7 +19,8 @@ import (
 	"github.com/ntk148v/koker/pkg/utils"
 )
 
-var version = "v0.0.1"
+// This variable will be replaced in build phase
+var version = "VERSION"
 
 func main() {
 	// Setup logging
