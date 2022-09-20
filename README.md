@@ -243,6 +243,18 @@ $ sudo koker -q container run --hostname test --mem 1024 alpine sh
 / #
 ```
 
+- Note if you hit this kind of error, you should check the current max open files.
+```bash
+5:09PM ERR Something went wrong error="unable to pull image: unable to extract tarball's layer: open /var/lib/koker/images/2d389e545974d4a93ebdef09b650753a55f72d1ab4518d17a30c0e1b3e297444/31b3f1ad4ce1f369084d0f959813c51df0ca17d9877d5ee88c2db6ff88341430/usr/lib/x86_64-linux-gnu/perl-base/unicore/lib/Age/V80.pl: too many open files"
+```
+
+```shell
+# Check current max open files
+ulimit -n
+# Change value to appropriate value, for example 4096
+ulimit -n 4096
+```
+
 ## 4. Contributing
 
 Pull requests and issues are alway welcome!
