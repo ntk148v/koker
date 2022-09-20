@@ -1,6 +1,7 @@
 <h1 align="center">Koker</h1>
 
-<p align="center">Building a Docker-like tool - `koker` - Kien's mini docker.</p>
+<p align="center">Building a <b>Koker</b> - Kien's mini Docker.</p>
+<p align="center"><i>What I cannot create, I do not understand — Richard Feynman</i></p>
 
 <p align="center">
     <a href="https://github.com/ntk148v/koker/blob/master/LICENSE">
@@ -12,11 +13,10 @@
 <a href="https://github.com/ntk148v/koker/network/members"><img src="https://img.shields.io/github/forks/ntk148v/koker?colorA=192330&colorB=9d79d6&style=for-the-badge"></a>
 </p>
 
-> What I cannot create, I do not understand — Richard Feynman
-
 - [1. Introduction](#1-introduction)
 - [2. Getting started](#2-getting-started)
 - [3. Examples](#3-examples)
+- [4. Contributing](#4-contributing)
 
 ## 1. Introduction
 
@@ -29,12 +29,14 @@
     - Control Groups for resource restriction (CPU, Memory, Swap, PIDs).
     - Namespace for global system resources isolation (Mount, UTS, Network, IPS, PID).
     - Union File System for branches to be overlaid in a single coherent file system. (OverlayFS)
-- Should I use **Koker** in production?
-  - Nope, Koker isn't a production ready tool.
 - **Koker** is highly inspired by:
   - [Bocker](https://github.com/p8952/bocker).
   - [Containers-the-hard-way](https://github.com/shuveb/containers-the-hard-way)
   - [Vessel](https://github.com/0xc0d/vessel)
+- Should I use **Koker** in production?
+  - Nope, Koker isn't a production ready tool!
+- Can **Koker** perform every Docker tasks?
+  - Nope, ofc, Koker doesn't aim to recreate every Docker's tasks (*Don't reinvent the wheel*). There are just some simple tasks for educational-purpose.
 
 ## 2. Getting started
 
@@ -47,6 +49,9 @@ $ git clone https://github.com/ntk148v/koker.git
 $ go build -ldflags "-s -w" -o koker cmd/koker/main.go
 $ ./koker --help
 ```
+
+- Usage:
+  - Note that you must have root permission to execute koker.
 
 ```shell
 $ sudo koker --help
@@ -234,3 +239,7 @@ ccjuq1p3l1hn8clpgib0    0261ca8a4a79            sh
 $ sudo koker -q container run --hostname test --mem 1024 alpine sh
 / #
 ```
+
+## 4. Contributing
+
+Pull requests and issues are alway welcome!
