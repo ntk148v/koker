@@ -48,7 +48,7 @@ $ go get -u github.com/ntk148v/koker
 $ git clone https://github.com/ntk148v/koker.git koker
 $ cd koker
 $ make build
-$ sudo ./koker --help
+$ sudo /tmp/koker --help
 ```
 
 - You can also download binary file in [releases](https://github.com/ntk148v/koker/releases).
