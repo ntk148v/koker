@@ -147,7 +147,10 @@ func main() {
 						commands = args.Slice()[1:]
 					}
 
-					c := containers.NewContainer(utils.GenUID())
+					c, err := containers.NewContainer(utils.GenUID())
+					if err != nil {
+						return fmt.Errorf("error initializing container: %v", err)
+					}
 
 					// Init container
 					if err := c.Run(image, commands, ctx.String("hostname"), ctx.Int("mem"), ctx.Int("swap"),
@@ -199,7 +202,11 @@ func main() {
 						commands = args.Slice()[1:]
 					}
 
-					c := containers.NewContainer(container)
+					c, err := containers.NewContainer(container)
+					if err != nil {
+						return fmt.Errorf("error initializing container: %v", err)
+					}
+
 					if err := c.LoadConfig(); err != nil {
 						return err
 					}
@@ -256,7 +263,11 @@ func main() {
 						commands = args.Slice()[1:]
 					}
 
-					c := containers.NewContainer(container)
+					c, err := containers.NewContainer(container)
+					if err != nil {
+						return fmt.Errorf("error initializing container: %v", err)
+					}
+
 					if err := c.LoadConfig(); err != nil {
 						return err
 					}

@@ -15,6 +15,7 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 
+	"github.com/ntk148v/koker/pkg/cgroups"
 	"github.com/ntk148v/koker/pkg/constants"
 	"github.com/ntk148v/koker/pkg/filesystem"
 	"github.com/ntk148v/koker/pkg/images"
@@ -36,7 +37,7 @@ func ListAllContainers() ([]map[string]string, error) {
 		}
 
 		// Load container config to retrieve config
-		c := NewContainer(file.Name())
+		c, _ := NewContainer(file.Name())
 		if err := c.LoadConfig(); err != nil {
 			return all, err
 		}
@@ -62,18 +63,22 @@ type Container struct {
 	ID     string
 	RootFS string
 	log    zerolog.Logger
-	cg     *cgroups
+	cg     cgroups.CGroups
 }
 
 // NewContainer returns a new Container instance with random digest
-func NewContainer(id string) *Container {
-	return &Container{
+func NewContainer(id string) (*Container, error) {
+	c := &Container{
 		Config: new(v1.Config),
 		RootFS: filepath.Join(constants.KokerContainersPath, id, "mnt"),
 		ID:     id,
 		log:    log.With().Str("container", id).Logger(),
-		cg:     newCGroup(filepath.Join(constants.KokerApp, id)),
 	}
+	cg, err := cgroups.NewCGroups(constants.KokerApp + "-" + id)
+	if err == nil {
+		c.cg = cg
+	}
+	return c, err
 }
 
 func (c *Container) Run(src string, cmds []string, hostname string, mem, swap, pids int, cpus float64, quiet, debug bool) error {
@@ -154,7 +159,7 @@ func (c *Container) RunChild(cmdArgs []string, hostname string, mem, swap, pids 
 	c.setHostname(hostname)
 
 	// Setup cgroups
-	if err := c.cg.addProcess(); err != nil {
+	if err := c.cg.AddProcess(); err != nil {
 		return err
 	}
 
@@ -276,7 +281,7 @@ func (c *Container) getMainPid() (string, error) {
 		pid string
 		err error
 	)
-	pids, err := c.cg.getPids()
+	pids, err := c.cg.GetPids()
 	if err != nil {
 		return pid, err
 	}
@@ -329,15 +334,15 @@ func (c *Container) copyNameServerConfig() error {
 func (c *Container) setLimit(mem, swap, pids int, cpus float64) error {
 	c.log.Info().Msg("Set container's limit using cgroup")
 	c.log.Debug().Msg("Set container's memory limit")
-	if err := c.cg.setMemSwpLimit(mem, swap); err != nil {
+	if err := c.cg.SetMemSwpLimit(mem, swap); err != nil {
 		return err
 	}
 	c.log.Debug().Msg("Set container's pids limit")
-	if err := c.cg.setPidsLimit(pids); err != nil {
+	if err := c.cg.SetPidsLimit(pids); err != nil {
 		return err
 	}
 	c.log.Debug().Msg("Set container's cpus limit")
-	if err := c.cg.setCPULimit(cpus); err != nil {
+	if err := c.cg.SetCPULimit(cpus); err != nil {
 		return err
 	}
 	return nil
@@ -365,7 +370,7 @@ func (c *Container) delete() error {
 		return errors.Wrap(err, "unable to remove network namespace")
 	}
 	c.log.Debug().Msg("Remove container cgroups")
-	c.cg.remove()
+	c.cg.Remove()
 	return nil
 }
 

@@ -15,15 +15,8 @@ const (
 	KokerCtrEthName      = "eth0"
 
 	// CGroup
-	CGroupPath           = "/sys/fs/cgroup"
-	ReleaseAgentFilename = "notify_on_release"
-	ProcsFilename        = "cgroup.procs"
-	MemLimitFilename     = "memory.limit_in_bytes"
-	MemswLimitFilename   = "memory.memsw.limit_in_bytes"
-	CpuQuotaFilename     = "cpu.cfs_quota_us"
-	CpuPeriodFilename    = "cpu.cfs_period_us"
-	MaxProcessFilename   = "pids.max"
-	DefaultCfsPeriod     = 100000
+	CGroupMountpoint = "/sys/fs/cgroup"
+	DefaultCfsPeriod = 100000
 
 	// Template
 	ContainersTemplate = `
