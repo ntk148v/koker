@@ -40,6 +40,19 @@
 
 ## 2. Getting started
 
+- Check your cgroup version:
+
+```bash
+$ grep cgroup /proc/filesystems
+# If your system supports cgroupv2, you would see:
+nodev   cgroup
+nodev   cgroup2
+# On a system with only cgroupv1, you would only see:
+nodev   cgroup
+```
+
+- Koker only works with cgroupv1. The version that is compatible with cgroupv2 is coming soon.
+
 - Install:
 
 ```shell
