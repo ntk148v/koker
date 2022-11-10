@@ -237,16 +237,14 @@ func (c *Container) ExecuteCommand(cmdArgs []string, child bool) error {
 	var cmd *exec.Cmd
 
 	if len(cmdArgs) < 1 {
-		if len(c.Config.Entrypoint) > 0 {
-			cmdArgs = append(cmdArgs, c.Config.Entrypoint...)
-		}
 		cmdArgs = append(cmdArgs, c.Config.Cmd...)
 	}
 
-	command, argv := utils.CmdAndArgs(c.Config.Cmd)
-	if len(cmdArgs) > 0 {
-		command, argv = utils.CmdAndArgs(cmdArgs)
+	if len(c.Config.Entrypoint) > 0 {
+		cmdArgs = append(c.Config.Entrypoint, cmdArgs...)
 	}
+
+	command, argv := utils.CmdAndArgs(cmdArgs)
 
 	c.log.Debug().Str("command", command).Msg("Execute command")
 	cmd = exec.Command(command, argv...)
