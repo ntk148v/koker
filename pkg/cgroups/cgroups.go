@@ -36,6 +36,8 @@ func NewCGroups(path string) (CGroups, error) {
 	case Legacy, Hybrid:
 		return newCGroupsv1(path)
 	case Unified:
+		// Handle CGroup v2
+		createKokerGroup()
 		return newCGroupsv2(path)
 	default:
 		return cg, nil

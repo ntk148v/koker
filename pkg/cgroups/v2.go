@@ -13,6 +13,19 @@ import (
 	"github.com/ntk148v/koker/pkg/utils"
 )
 
+// createKokerGroup creates a child group of Root
+// then enable cpu, memory, and pids controllers
+func createKokerGroup() error {
+	kokerCGroup := filepath.Join(constants.CGroupMountpoint, constants.KokerApp)
+	if err := utils.CreateDir(kokerCGroup); err != nil {
+		return err
+	}
+
+	// Enable controllers
+	return ioutil.WriteFile(filepath.Join(kokerCGroup, "cgroup.subtree_control"),
+		[]byte("+cpu +memory +pids"), 0644)
+}
+
 type cgroupsv2 struct {
 	dir string
 }
@@ -22,25 +35,31 @@ func newCGroupsv2(path string) (cgroupsv2, error) {
 		dir: filepath.Join(constants.CGroupMountpoint, path),
 	}
 
-	return cg, utils.CreateDir(cg.dir)
+	if err := utils.CreateDir(cg.dir); err != nil {
+		return cg, err
+	}
+
+	// Enable controllers
+	if err := ioutil.WriteFile(filepath.Join(cg.dir, "cgroup.subtree_control"),
+		[]byte("+cpu +memory +pids"), 0644); err != nil {
+		return cg, err
+	}
+	return cg, nil
 }
 
 // SetMemSwpLimit sets memory and swap limit for CGroups
 func (cg cgroupsv2) SetMemSwpLimit(memory, swap int) error {
 	if memory > 0 {
-		if memory > 0 {
-			memFile := filepath.Join(cg.dir, "memory.max")
-			if err := ioutil.WriteFile(memFile, []byte(strconv.Itoa(memory*1024*1024)), 0644); err != nil {
+		memFile := filepath.Join(cg.dir, "memory.max")
+		if err := ioutil.WriteFile(memFile, []byte(strconv.Itoa(memory*1024*1024)), 0644); err != nil {
+			return err
+		}
+		if swap > 0 {
+			memswFile := filepath.Join(cg.dir, "memory.swap.max")
+			if err := ioutil.WriteFile(memswFile, []byte(strconv.Itoa((memory+swap)*1024*1024)), 0644); err != nil {
 				return err
 			}
-			if swap > 0 {
-				memswFile := filepath.Join(cg.dir, "memory.swap.max")
-				if err := ioutil.WriteFile(memswFile, []byte(strconv.Itoa((memory+swap)*1024*1024)), 0644); err != nil {
-					return err
-				}
-			}
 		}
-		return nil
 	}
 	return nil
 }

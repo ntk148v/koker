@@ -74,7 +74,7 @@ func NewContainer(id string) (*Container, error) {
 		ID:     id,
 		log:    log.With().Str("container", id).Logger(),
 	}
-	cg, err := cgroups.NewCGroups(constants.KokerApp + "-" + id)
+	cg, err := cgroups.NewCGroups(constants.KokerApp + "/" + id)
 	if err == nil {
 		c.cg = cg
 	}
