@@ -35,16 +35,7 @@ func newCGroupsv2(path string) (cgroupsv2, error) {
 		dir: filepath.Join(constants.CGroupMountpoint, path),
 	}
 
-	if err := utils.CreateDir(cg.dir); err != nil {
-		return cg, err
-	}
-
-	// Enable controllers
-	if err := ioutil.WriteFile(filepath.Join(cg.dir, "cgroup.subtree_control"),
-		[]byte("+cpu +memory +pids"), 0644); err != nil {
-		return cg, err
-	}
-	return cg, nil
+	return cg, utils.CreateDir(cg.dir)
 }
 
 // SetMemSwpLimit sets memory and swap limit for CGroups
