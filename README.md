@@ -26,7 +26,7 @@
 - Why **Koker**?
   - Have you ever wondered how Docker containers are constructed?
   - Koker provides an understanding of how extactly containers work at the Linux system call level by using logging (every steps!).
-    - Control Groups for resource restriction (CPU, Memory, Swap, PIDs).
+    - Control Groups for resource restriction (CPU, Memory, Swap, PIDs). *All CGroups modes (Legacy - v1, Hybrid - v1 & v2, Unified - v2) are handled*.
     - Namespace for global system resources isolation (Mount, UTS, Network, IPS, PID).
     - Union File System for branches to be overlaid in a single coherent file system. (OverlayFS)
 - **Koker** is highly inspired by:
@@ -39,19 +39,6 @@
   - Nope, ofc, Koker doesn't aim to recreate every Docker's tasks (*Don't reinvent the wheel*). There are just some simple tasks for educational-purpose.
 
 ## 2. Getting started
-
-- Check your cgroup version:
-
-```bash
-$ grep cgroup /proc/filesystems
-# If your system supports cgroupv2, you would see:
-nodev   cgroup
-nodev   cgroup2
-# On a system with only cgroupv1, you would only see:
-nodev   cgroup
-```
-
-- Koker only works with cgroupv1. The version that is compatible with cgroupv2 is coming soon.
 
 - Install:
 
@@ -242,6 +229,38 @@ $ sudo koker -D container exec ccjuq1p3l1hn8clpgib0 sh
 11:17AM INF Execute command container=ccjuq1p3l1hn8clpgib0
 11:17AM DBG Execute command command=sh container=ccjuq1p3l1hn8clpgib0
 / #
+```
+
+- Run container with limited resource.
+  - Run golang-memtest container to allocate 20MiB in 10MiB container.
+
+```shell
+$ sudo koker container run --mem 10 fabianlee/golang-memtest:1.0.0 20
+9:20AM INF Load image repository from file repository=/var/lib/koker/images/repositories.json
+9:20AM INF Setup network for container container=cdmr2vmfvq0sn7gs7r80
+9:20AM INF Construct new Image instance image=fabianlee/golang-memtest:1.0.0
+9:20AM INF Image exists, reuse image=index.docker.io/fabianlee/golang-memtest:1.0.0
+9:20AM INF Mount filesystem for container from an image container=cdmr2vmfvq0sn7gs7r80 image=index.docker.io/fabianlee/golang-memtest:1.0.0
+9:20AM INF Load image repository from file repository=/var/lib/koker/images/repositories.json
+9:20AM INF Set hostname container=cdmr2vmfvq0sn7gs7r80
+9:20AM INF Set container's limit using cgroup container=cdmr2vmfvq0sn7gs7r80
+9:20AM INF Copy nameserver config container=cdmr2vmfvq0sn7gs7r80
+9:20AM INF Execute command container=cdmr2vmfvq0sn7gs7r80
+Alloc = 0 MiB   TotalAlloc = 0 MiB      Sys = 68 MiB    NumGC = 0
+Asked to allocate 20Mb
+
+Alloc = 1 MiB   TotalAlloc = 1 MiB      Sys = 68 MiB    NumGC = 0
+Alloc = 2 MiB   TotalAlloc = 2 MiB      Sys = 68 MiB    NumGC = 0
+Alloc = 3 MiB   TotalAlloc = 3 MiB      Sys = 68 MiB    NumGC = 0
+Alloc = 4 MiB   TotalAlloc = 4 MiB      Sys = 68 MiB    NumGC = 1
+Alloc = 5 MiB   TotalAlloc = 5 MiB      Sys = 68 MiB    NumGC = 1
+Alloc = 6 MiB   TotalAlloc = 6 MiB      Sys = 68 MiB    NumGC = 1
+Alloc = 7 MiB   TotalAlloc = 7 MiB      Sys = 68 MiB    NumGC = 1
+Alloc = 8 MiB   TotalAlloc = 8 MiB      Sys = 68 MiB    NumGC = 2
+9:20AM ERR Something went wrong error="error running child command: signal: killed"
+9:20AM INF Save image repository to file repository=/var/lib/koker/images/repositories.json
+9:20AM INF Delete container container=cdmr2vmfvq0sn7gs7r80
+9:20AM INF Save image repository to file repository=/var/lib/koker/images/repositories.json
 ```
 
 - If you find logging is annoying, ignore them with "--quiet" option.
