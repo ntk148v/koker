@@ -26,7 +26,7 @@
 - Why **Koker**?
   - Have you ever wondered how Docker containers are constructed?
   - Koker provides an understanding of how extactly containers work at the Linux system call level by using logging (every steps!).
-    - Control Groups for resource restriction (CPU, Memory, Swap, PIDs). All CGroups modes (Legacy - v1, Hybrid - v1 & v2, Unified - v2) are covered.
+    - Control Groups for resource restriction (CPU, Memory, Swap, PIDs). *All CGroups modes (Legacy - v1, Hybrid - v1 & v2, Unified - v2) are handled*.
     - Namespace for global system resources isolation (Mount, UTS, Network, IPS, PID).
     - Union File System for branches to be overlaid in a single coherent file system. (OverlayFS)
 - **Koker** is highly inspired by:
