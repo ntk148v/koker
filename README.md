@@ -22,11 +22,11 @@
 
 - What is **Koker**?
   - Koker is a tiny educational-purpose Docker-like tool, written in Golang.
-  - Unlike Docker, Koker just uses a set of Linux's operating system primitives that provide the illusion of a container. Tt uses neither [containerd](https://containerd.io/) nor [runc](https://github.com/opencontainers/runc).
+  - Unlike Docker, Koker just uses a set of Linux's operating system primitives that provide the illusion of a container. It uses neither [containerd](https://containerd.io/) nor [runc](https://github.com/opencontainers/runc).
 - Why **Koker**?
   - Have you ever wondered how Docker containers are constructed?
   - Koker provides an understanding of how extactly containers work at the Linux system call level by using logging (every steps!).
-    - Control Groups for resource restriction (CPU, Memory, Swap, PIDs). *All CGroups modes (Legacy - v1, Hybrid - v1 & v2, Unified - v2) are handled*.
+    - Control Groups for resource restriction (CPU, Memory, Swap, PIDs). _All CGroups modes (Legacy - v1, Hybrid - v1 & v2, Unified - v2) are handled_.
     - Namespace for global system resources isolation (Mount, UTS, Network, IPS, PID).
     - Union File System for branches to be overlaid in a single coherent file system. (OverlayFS)
 - **Koker** is highly inspired by:
@@ -36,7 +36,7 @@
 - Should I use **Koker** in production?
   - Nope, Koker isn't a production ready tool!
 - Can **Koker** perform every Docker tasks?
-  - Nope, ofc, Koker doesn't aim to recreate every Docker's tasks (*Don't reinvent the wheel*). There are just some simple tasks for educational-purpose.
+  - Nope, ofc, Koker doesn't aim to recreate every Docker's tasks. There are just some simple tasks for educational-purpose.
 
 ## 2. Getting started
 
@@ -276,6 +276,7 @@ $ sudo koker -q container run --hostname test --mem 1024 alpine sh
 ```
 
 - Note if you hit this kind of error, you should check the current max open files.
+
 ```bash
 5:09PM ERR Something went wrong error="unable to pull image: unable to extract tarball's layer: open /var/lib/koker/images/2d389e545974d4a93ebdef09b650753a55f72d1ab4518d17a30c0e1b3e297444/31b3f1ad4ce1f369084d0f959813c51df0ca17d9877d5ee88c2db6ff88341430/usr/lib/x86_64-linux-gnu/perl-base/unicore/lib/Age/V80.pl: too many open files"
 ```
