@@ -37,6 +37,7 @@
   - Nope, Koker isn't a production ready tool!
 - Can **Koker** perform every Docker tasks?
   - Nope, ofc, Koker doesn't aim to recreate every Docker's tasks. There are just some simple tasks for educational-purpose.
+- If you are looking for a tool similar to Docker in terms of functionality but do not require a daemon to operate, Podman is a suitable choice for you.
 
 ## 2. Getting started
 
