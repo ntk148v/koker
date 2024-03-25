@@ -1,7 +1,6 @@
 package images
 
 import (
-	"io/ioutil"
 	"os"
 	"path/filepath"
 
@@ -72,12 +71,15 @@ func (i *Image) Download(tag name.Tag) error {
 	}
 
 	// Get image's id
-	imgCfg, _ := img.ConfigFile()
+	imgID, err := img.ConfigName()
+	if err != nil {
+		return errors.Wrap(err, "unable to get image config")
+	}
 
 	// Store image metadata
 	imgSHA := manifest.Config.Digest.Hex
 	i.Metadata = Metadata{
-		ID:         imgCfg.Config.Image[8:],
+		ID:         imgID.Hex,
 		Digest:     imgSHA,
 		Tag:        tag.TagStr(),
 		Repository: tag.RepositoryStr(),
@@ -118,7 +120,7 @@ func (i *Image) Download(tag name.Tag) error {
 		return err
 	}
 
-	if err := ioutil.WriteFile(configPath, data, 0655); err != nil {
+	if err := os.WriteFile(configPath, data, 0655); err != nil {
 		return err
 	}
 
