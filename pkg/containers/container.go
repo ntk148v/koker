@@ -300,7 +300,7 @@ func (c *Container) getCmd() (string, error) {
 	if err != nil {
 		return cmd, err
 	}
-	cmdline, err := ioutil.ReadFile(filepath.Join("/proc", pid, "cmdline"))
+	cmdline, err := os.ReadFile(filepath.Join("/proc", pid, "cmdline"))
 	if err != nil {
 		return cmd, err
 	}

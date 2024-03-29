@@ -2,7 +2,6 @@ package images
 
 import (
 	"encoding/json"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"sync"
@@ -45,7 +44,7 @@ func LoadRepository() error {
 		}
 
 		log.Debug().Msg("Load image repository")
-		data, err := ioutil.ReadFile(repositoryPath)
+		data, err := os.ReadFile(repositoryPath)
 		if err != nil {
 			return errors.Wrap(err, "unable to load image repository")
 		}
