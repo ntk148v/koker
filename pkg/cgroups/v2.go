@@ -3,7 +3,6 @@ package cgroups
 import (
 	"bufio"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -22,7 +21,7 @@ func createKokerGroup() error {
 	}
 
 	// Enable controllers
-	return ioutil.WriteFile(filepath.Join(kokerCGroup, "cgroup.subtree_control"),
+	return os.WriteFile(filepath.Join(kokerCGroup, "cgroup.subtree_control"),
 		[]byte("+cpu +memory +pids"), 0644)
 }
 
@@ -42,12 +41,12 @@ func newCGroupsv2(path string) (cgroupsv2, error) {
 func (cg cgroupsv2) SetMemSwpLimit(memory, swap int) error {
 	if memory > 0 {
 		memFile := filepath.Join(cg.dir, "memory.max")
-		if err := ioutil.WriteFile(memFile, []byte(strconv.Itoa(memory*1024*1024)), 0644); err != nil {
+		if err := os.WriteFile(memFile, []byte(strconv.Itoa(memory*1024*1024)), 0644); err != nil {
 			return err
 		}
 		if swap > 0 {
 			memswFile := filepath.Join(cg.dir, "memory.swap.max")
-			if err := ioutil.WriteFile(memswFile, []byte(strconv.Itoa((memory+swap)*1024*1024)), 0644); err != nil {
+			if err := os.WriteFile(memswFile, []byte(strconv.Itoa((memory+swap)*1024*1024)), 0644); err != nil {
 				return err
 			}
 		}
@@ -60,7 +59,7 @@ func (cg cgroupsv2) SetMemSwpLimit(memory, swap int) error {
 func (cg cgroupsv2) SetPidsLimit(pids int) error {
 	if pids > 0 {
 		pidsFile := filepath.Join(cg.dir, "pids.max")
-		if err := ioutil.WriteFile(pidsFile, []byte(strconv.Itoa(pids)), 0644); err != nil {
+		if err := os.WriteFile(pidsFile, []byte(strconv.Itoa(pids)), 0644); err != nil {
 			return err
 		}
 	}
@@ -73,7 +72,7 @@ func (cg cgroupsv2) SetCPULimit(cpus float64) error {
 		cpuFile := filepath.Join(cg.dir, "cpu.max")
 		cpuVal := fmt.Sprintf("%d%d", int(cpus*constants.DefaultCfsPeriod),
 			constants.DefaultCfsPeriod)
-		if err := ioutil.WriteFile(cpuFile, []byte(cpuVal), 0644); err != nil {
+		if err := os.WriteFile(cpuFile, []byte(cpuVal), 0644); err != nil {
 			return err
 		}
 	}
@@ -85,7 +84,7 @@ func (cg cgroupsv2) AddProcess() error {
 	// Get pid
 	pid := os.Getpid()
 	procsFile := filepath.Join(cg.dir, "cgroup.procs")
-	return ioutil.WriteFile(procsFile, []byte(strconv.Itoa(pid)), 0700)
+	return os.WriteFile(procsFile, []byte(strconv.Itoa(pid)), 0700)
 }
 
 // Remove removes CGroups

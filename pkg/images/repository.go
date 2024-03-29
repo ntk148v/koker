@@ -39,7 +39,7 @@ func LoadRepository() error {
 		lock.Lock()
 		defer lock.Unlock()
 		if _, err := os.Stat(repositoryPath); os.IsNotExist(err) {
-			ioutil.WriteFile(repositoryPath, []byte("{}"), 0644)
+			os.WriteFile(repositoryPath, []byte("{}"), 0644)
 			imgRepo = make(repository)
 			return nil
 		}
@@ -71,7 +71,7 @@ func SaveRepository() error {
 	if err != nil {
 		return errors.Wrap(err, "unable to marshal image regsitry")
 	}
-	if err = ioutil.WriteFile(repositoryPath, b, 0644); err != nil {
+	if err = os.WriteFile(repositoryPath, b, 0644); err != nil {
 		return errors.Wrap(err, "unable to save repository to file")
 	}
 	return nil

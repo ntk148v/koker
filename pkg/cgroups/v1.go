@@ -2,7 +2,6 @@ package cgroups
 
 import (
 	"bufio"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -37,12 +36,12 @@ func newCGroupsv1(path string) (cgroupsv1, error) {
 func (cg cgroupsv1) SetMemSwpLimit(memory, swap int) error {
 	if memory > 0 {
 		memFile := filepath.Join(cg.dirs["memory"], "memory.limit_in_bytes")
-		if err := ioutil.WriteFile(memFile, []byte(strconv.Itoa(memory*1024*1024)), 0644); err != nil {
+		if err := os.WriteFile(memFile, []byte(strconv.Itoa(memory*1024*1024)), 0644); err != nil {
 			return err
 		}
 		if swap > 0 {
 			memswFile := filepath.Join(cg.dirs["memory"], "memory.memsw.limit_in_bytes")
-			if err := ioutil.WriteFile(memswFile, []byte(strconv.Itoa((memory+swap)*1024*1024)), 0644); err != nil {
+			if err := os.WriteFile(memswFile, []byte(strconv.Itoa((memory+swap)*1024*1024)), 0644); err != nil {
 				return err
 			}
 		}
@@ -55,7 +54,7 @@ func (cg cgroupsv1) SetMemSwpLimit(memory, swap int) error {
 func (cg cgroupsv1) SetPidsLimit(pids int) error {
 	if pids > 0 {
 		pidsFile := filepath.Join(cg.dirs["pids"], "pids.max")
-		if err := ioutil.WriteFile(pidsFile, []byte(strconv.Itoa(pids)), 0644); err != nil {
+		if err := os.WriteFile(pidsFile, []byte(strconv.Itoa(pids)), 0644); err != nil {
 			return err
 		}
 	}
@@ -66,13 +65,13 @@ func (cg cgroupsv1) SetPidsLimit(pids int) error {
 func (cg cgroupsv1) SetCPULimit(cpus float64) error {
 	if int(cpus) > 0 && int(cpus) < runtime.NumCPU() {
 		cpuPeriodFile := filepath.Join(cg.dirs["cpu"], "cpu.cfs_period_us")
-		if err := ioutil.WriteFile(cpuPeriodFile, []byte(strconv.Itoa(constants.DefaultCfsPeriod)),
+		if err := os.WriteFile(cpuPeriodFile, []byte(strconv.Itoa(constants.DefaultCfsPeriod)),
 			0644); err != nil {
 			return err
 		}
 
 		cpuQuotaFile := filepath.Join(cg.dirs["cpu"], "cpu.cfs_quota_us")
-		if err := ioutil.WriteFile(cpuQuotaFile, []byte(strconv.Itoa(int(cpus*constants.DefaultCfsPeriod))),
+		if err := os.WriteFile(cpuQuotaFile, []byte(strconv.Itoa(int(cpus*constants.DefaultCfsPeriod))),
 			0644); err != nil {
 			return err
 		}
@@ -86,7 +85,7 @@ func (cg cgroupsv1) AddProcess() error {
 	pid := os.Getpid()
 	for _, dir := range cg.dirs {
 		procsFile := filepath.Join(dir, "cgroup.procs")
-		if err := ioutil.WriteFile(procsFile, []byte(strconv.Itoa(pid)), 0700); err != nil {
+		if err := os.WriteFile(procsFile, []byte(strconv.Itoa(pid)), 0700); err != nil {
 			return err
 		}
 	}
