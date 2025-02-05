@@ -312,9 +312,9 @@ func (c *Container) getCmd() (string, error) {
 func (c *Container) copyNameServerConfig() error {
 	c.log.Info().Msg("Copy nameserver config")
 	resolvFilePaths := []string{
-		"/var/run/systemd/resolve/resolv.conf",
 		fmt.Sprintf("/etc/%sresolv.conf", constants.KokerApp),
 		"/etc/resolv.conf",
+		"/var/run/systemd/resolve/resolv.conf",
 	}
 	for _, resolvFilePath := range resolvFilePaths {
 		if _, err := os.Stat(resolvFilePath); os.IsNotExist(err) {
