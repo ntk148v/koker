@@ -3,7 +3,6 @@ package containers
 import (
 	"bytes"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -26,7 +25,7 @@ import (
 
 func ListAllContainers() ([]map[string]string, error) {
 	all := make([]map[string]string, 0)
-	files, err := ioutil.ReadDir(constants.KokerContainersPath)
+	files, err := os.ReadDir(constants.KokerContainersPath)
 	if err != nil {
 		return all, err
 	}
