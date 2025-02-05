@@ -2,9 +2,7 @@ package main
 
 import (
 	"fmt"
-	"math/rand"
 	"os"
-	"time"
 
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/pkg/errors"
@@ -38,8 +36,6 @@ func main() {
 	if err := utils.InitKokerDirs(); err != nil {
 		log.Fatal().Err(err).Msg("Unable to create requisite directories")
 	}
-
-	rand.Seed(time.Now().UnixNano())
 
 	app := &cli.App{
 		Name:                 "koker",
