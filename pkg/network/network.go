@@ -3,6 +3,7 @@ package network
 import (
 	"net"
 
+	"github.com/coreos/go-iptables/iptables"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
 	"github.com/vishvananda/netlink"
@@ -160,4 +161,22 @@ func IPExists(ip net.IP) (bool, error) {
 		}
 	}
 	return false, nil
+}
+
+// AppendPOSTROUTINGRule sets up the iptables rules
+func AppendPOSTROUTINGRule(source, outgoingInterface string) error {
+	// Create an instance of the iptables handler
+	ipt, err := iptables.New()
+	if err != nil {
+		return err
+	}
+
+	// Define the rule parameters
+	log.Debug().Str("source", source).Str("outgoing", outgoingInterface).Msg("Append POSTROUTING rule")
+	err = ipt.AppendUnique("nat", "POSTROUTING", "-s", source, "!", "-o", outgoingInterface, "-j", "MASQUERADE")
+	if err != nil {
+		return err
+	}
+
+	return nil
 }

@@ -145,7 +145,7 @@ func Extract(tarball, target string) error {
 // run at time.
 func GenIPAddress() string {
 	// Hardcode
-	return fmt.Sprintf("172.69.%d.%d/16", rand.Intn(254), rand.Intn(254))
+	return fmt.Sprintf("%s%d.%d/16", constants.KokerBridgeIPPrefix, rand.Intn(254), rand.Intn(254))
 }
 
 func CmdAndArgs(args []string) (command string, argv []string) {

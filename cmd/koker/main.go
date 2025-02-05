@@ -136,6 +136,12 @@ func main() {
 						}
 					}
 
+					// Setup iptables rules for outgoing traffic
+					if err := network.AppendPOSTROUTINGRule(constants.KokerBridgeIPCIDR,
+						constants.KokerBridgeName); err != nil {
+						return errors.Wrap(err, "unable to setup iptables rules")
+					}
+
 					args := ctx.Args()
 					if !args.Present() {
 						return errors.New("missing required arguments")

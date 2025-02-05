@@ -91,6 +91,7 @@ func (c *Container) Run(src string, cmds []string, hostname string, mem, swap, p
 	if err != nil {
 		return errors.Wrap(err, "unable to setup network")
 	}
+
 	defer func() {
 		if err := delNet(); err != nil {
 			c.log.Error().Err(err).Msg("Unmount network namespace failed")
@@ -411,7 +412,7 @@ func (c *Container) setupNetwork(bridge string) (filesystem.Unmounter, error) {
 		return nil, err
 	}
 
-	if err := network.LinkSetMaster(vethName, constants.KokerBridgeName); err != nil {
+	if err := network.LinkSetMaster(vethName, bridge); err != nil {
 		return nil, err
 	}
 
