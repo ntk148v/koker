@@ -3,7 +3,6 @@ package containers
 import (
 	"bytes"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -26,7 +25,7 @@ import (
 
 func ListAllContainers() ([]map[string]string, error) {
 	all := make([]map[string]string, 0)
-	files, err := ioutil.ReadDir(constants.KokerContainersPath)
+	files, err := os.ReadDir(constants.KokerContainersPath)
 	if err != nil {
 		return all, err
 	}
@@ -92,6 +91,7 @@ func (c *Container) Run(src string, cmds []string, hostname string, mem, swap, p
 	if err != nil {
 		return errors.Wrap(err, "unable to setup network")
 	}
+
 	defer func() {
 		if err := delNet(); err != nil {
 			c.log.Error().Err(err).Msg("Unmount network namespace failed")
@@ -312,9 +312,9 @@ func (c *Container) getCmd() (string, error) {
 func (c *Container) copyNameServerConfig() error {
 	c.log.Info().Msg("Copy nameserver config")
 	resolvFilePaths := []string{
-		"/var/run/systemd/resolve/resolv.conf",
 		fmt.Sprintf("/etc/%sresolv.conf", constants.KokerApp),
 		"/etc/resolv.conf",
+		"/var/run/systemd/resolve/resolv.conf",
 	}
 	for _, resolvFilePath := range resolvFilePaths {
 		if _, err := os.Stat(resolvFilePath); os.IsNotExist(err) {
@@ -412,7 +412,7 @@ func (c *Container) setupNetwork(bridge string) (filesystem.Unmounter, error) {
 		return nil, err
 	}
 
-	if err := network.LinkSetMaster(vethName, constants.KokerBridgeName); err != nil {
+	if err := network.LinkSetMaster(vethName, bridge); err != nil {
 		return nil, err
 	}
 
