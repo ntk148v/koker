@@ -29,6 +29,7 @@
     - Control Groups for resource restriction (CPU, Memory, Swap, PIDs). _All CGroups modes (Legacy - v1, Hybrid - v1 & v2, Unified - v2) are handled_.
     - Namespace for global system resources isolation (Mount, UTS, Network, IPS, PID).
     - Union File System for branches to be overlaid in a single coherent file system. (OverlayFS)
+    - Container networking using bridge and iptables.
 - **Koker** is highly inspired by:
   - [Bocker](https://github.com/p8952/bocker).
   - [Containers-the-hard-way](https://github.com/shuveb/containers-the-hard-way)
@@ -262,6 +263,73 @@ Alloc = 8 MiB   TotalAlloc = 8 MiB      Sys = 68 MiB    NumGC = 2
 9:20AM INF Save image repository to file repository=/var/lib/koker/images/repositories.json
 9:20AM INF Delete container container=cdmr2vmfvq0sn7gs7r80
 9:20AM INF Save image repository to file repository=/var/lib/koker/images/repositories.json
+```
+
+- Connect to outside the world from the container:
+
+```shell
+$ sudo koker -D container run alpine sh
+11:25AM INF Load image repository from file repository=/var/lib/koker/images/repositories.json
+11:25AM DBG Load image repository
+11:25AM DBG Check default bridge is up or not bridge=koker0
+11:25AM DBG Append POSTROUTING rule outgoing=koker0 source=172.69.0.0/16
+11:25AM INF Setup network for container container=cui3je94h280e1c7nae0
+11:25AM DBG Setup virtual ethernet peer=veth1_cui3je9 virt=veth0_cui3je9
+11:25AM DBG Set the master of the link device link=veth0_cui3je9 master=koker0
+11:25AM DBG Mount new network namespace netns=/var/lib/koker/netns/cui3je94h280e1c7nae0
+11:25AM DBG Call syscall unshare CLONE_NEWNET netns=/var/lib/koker/netns/cui3je94h280e1c7nae0
+11:25AM DBG Mount new network namespace netns=/var/lib/koker/netns/cui3je94h280e1c7nae0
+11:25AM DBG Mount target source=/proc/self/ns/net target=/var/lib/koker/netns/cui3je94h280e1c7nae0
+11:25AM DBG Set network namespace netns=/var/lib/koker/netns/cui3je94h280e1c7nae0
+11:25AM DBG Put link device into a new network namespace link=veth1_cui3je9 netns=/var/lib/koker/netns/cui3je94h280e1c7nae0
+11:25AM DBG Set network namespace by file netns=/var/lib/koker/netns/cui3je94h280e1c7nae0
+11:25AM DBG Change the name of the link device newname=eth0 oldname=veth1_cui3je9
+11:25AM DBG Add IP address to the ip device ip=172.69.98.139/16 link=eth0
+11:25AM DBG Enable the link device link=eth0
+11:25AM DBG Set gateway for the link device gateway=172.69.0.1 link=eth0
+11:25AM DBG Enable the link device link=lo
+11:25AM INF Construct new Image instance image=alpine
+11:25AM INF Image exists, reuse image=index.docker.io/library/alpine:latest
+11:25AM INF Mount filesystem for container from an image container=cui3je94h280e1c7nae0 image=index.docker.io/library/alpine:latest
+11:25AM DBG Mount target source=none target=/var/lib/koker/containers/cui3je94h280e1c7nae0/mnt
+11:25AM DBG Copy container config from image config container=cui3je94h280e1c7nae0 image=library/alpine
+11:25AM INF Load image repository from file repository=/var/lib/koker/images/repositories.json
+11:25AM DBG Load image repository
+11:25AM DBG Load container config from file container=cui3je94h280e1c7nae0
+11:25AM INF Set hostname container=cui3je94h280e1c7nae0
+11:25AM INF Set container's limit using cgroup container=cui3je94h280e1c7nae0
+11:25AM DBG Set container's memory limit container=cui3je94h280e1c7nae0
+11:25AM DBG Set container's pids limit container=cui3je94h280e1c7nae0
+11:25AM DBG Set container's cpus limit container=cui3je94h280e1c7nae0
+11:25AM INF Copy nameserver config container=cui3je94h280e1c7nae0
+11:25AM INF Execute command container=cui3je94h280e1c7nae0
+11:25AM DBG Set network namespace container=cui3je94h280e1c7nae0
+11:25AM DBG Set network namespace by file netns=/var/lib/koker/netns/cui3je94h280e1c7nae0
+11:25AM DBG Mount target source=tmpfs target=dev
+11:25AM DBG Mount target source=proc target=proc
+11:25AM DBG Mount target source=sysfs target=sys
+11:25AM DBG Mount target source=tmpfs target=tmp
+11:25AM DBG Execute command command=sh container=cui3je94h280e1c7nae0
+/ # ip a
+1: lo: <LOOPBACK,UP,LOWER_UP> mtu 65536 qdisc noqueue state UNKNOWN qlen 1000
+    link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
+    inet 127.0.0.1/8 scope host lo
+       valid_lft forever preferred_lft forever
+    inet6 ::1/128 scope host
+       valid_lft forever preferred_lft forever
+53: eth0@if54: <BROADCAST,MULTICAST,UP,LOWER_UP,M-DOWN> mtu 1500 qdisc noqueue state UP qlen 1000
+    link/ether 72:eb:c0:fd:87:0c brd ff:ff:ff:ff:ff:ff
+    inet 172.69.98.139/16 brd 172.69.255.255 scope global eth0
+       valid_lft forever preferred_lft forever
+    inet6 fe80::70eb:c0ff:fefd:870c/64 scope link
+       valid_lft forever preferred_lft forever
+/ # ping 8.8.8.8
+PING 8.8.8.8 (8.8.8.8): 56 data bytes
+64 bytes from 8.8.8.8: seq=0 ttl=111 time=21.645 ms
+^C
+--- 8.8.8.8 ping statistics ---
+1 packets transmitted, 1 packets received, 0% packet loss
+round-trip min/avg/max = 21.645/21.645/21.645 ms
 ```
 
 - If you find logging is annoying, ignore them with "--quiet" option.
