@@ -70,7 +70,7 @@ func (cg cgroupsv2) SetPidsLimit(pids int) error {
 func (cg cgroupsv2) SetCPULimit(cpus float64) error {
 	if int(cpus) > 0 && int(cpus) < runtime.NumCPU() {
 		cpuFile := filepath.Join(cg.dir, "cpu.max")
-		cpuVal := fmt.Sprintf("%d%d", int(cpus*constants.DefaultCfsPeriod),
+		cpuVal := fmt.Sprintf("%d %d", int(cpus*constants.DefaultCfsPeriod),
 			constants.DefaultCfsPeriod)
 		if err := os.WriteFile(cpuFile, []byte(cpuVal), 0644); err != nil {
 			return err
