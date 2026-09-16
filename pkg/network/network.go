@@ -89,7 +89,7 @@ func LinkSetMaster(linkName, masterName string) error {
 	}
 	masterLink, err := netlink.LinkByName(masterName)
 	if err != nil {
-		return errors.Wrapf(err, "can't find link %s", linkName)
+		return errors.Wrapf(err, "can't find link %s", masterName)
 	}
 	return netlink.LinkSetMaster(link, masterLink)
 }
