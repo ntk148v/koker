@@ -14,11 +14,13 @@ import (
 
 var (
 	repositoryPath = filepath.Join(constants.KokerImagesPath, "repositories.json")
-	lock           = &sync.Mutex{}
+	lock           = &sync.RWMutex{}
 	imgRepo        repository
 )
 
 func ListAllImages() ([]map[string]string, error) {
+	lock.RLock()
+	defer lock.RUnlock()
 	all := make([]map[string]string, 0)
 	for _, v := range imgRepo {
 		all = append(all, map[string]string{
@@ -34,9 +36,9 @@ func ListAllImages() ([]map[string]string, error) {
 // LoadRepository creates image repository instance from file
 func LoadRepository() error {
 	log.Info().Str("repository", repositoryPath).Msg("Load image repository from file")
+	lock.Lock()
+	defer lock.Unlock()
 	if imgRepo == nil {
-		lock.Lock()
-		defer lock.Unlock()
 		if _, err := os.Stat(repositoryPath); os.IsNotExist(err) {
 			os.WriteFile(repositoryPath, []byte("{}"), 0644)
 			imgRepo = make(repository)
@@ -76,16 +78,31 @@ func SaveRepository() error {
 }
 
 func SetImage(k string, v Metadata) {
+	lock.Lock()
+	defer lock.Unlock()
+	if imgRepo == nil {
+		imgRepo = make(repository)
+	}
 	imgRepo.set(k, v)
 }
 
 func GetImage(k string) (Metadata, bool) {
+	lock.RLock()
+	defer lock.RUnlock()
+	if imgRepo == nil {
+		return Metadata{}, false
+	}
 	return imgRepo.get(k)
 }
 
 func DelImage(k string) {
 	// TODO(kiennt26): Check there is any container running from image
 	log.Info().Msg("Remove image")
+	lock.Lock()
+	defer lock.Unlock()
+	if imgRepo == nil {
+		return
+	}
 	img, exist := imgRepo.get(k)
 	if !exist {
 		log.Warn().Msg("Image doesn't exist, or maybe you're using image's id which is not supported yet")
