@@ -7,6 +7,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"syscall"
 
 	v1 "github.com/google/go-containerregistry/pkg/v1"
@@ -47,9 +48,14 @@ func ListAllContainers() ([]map[string]string, error) {
 			return all, err
 		}
 
+		imageName := c.Config.Image
+		if strings.HasPrefix(imageName, "sha256:") {
+			imageName = strings.TrimPrefix(imageName, "sha256:")
+		}
+
 		all = append(all, map[string]string{
 			"id":    c.ID,
-			"image": c.Config.Image[8:],
+			"image": imageName,
 			"cmd":   cmd,
 		})
 	}
@@ -352,7 +358,11 @@ func (c *Container) setHostname(hostname string) {
 	c.log.Info().Msg("Set hostname")
 	c.Config.Hostname = hostname
 	if c.Config.Hostname == "" {
-		c.Config.Hostname = c.ID[:12]
+		if len(c.ID) > 12 {
+			c.Config.Hostname = c.ID[:12]
+		} else {
+			c.Config.Hostname = c.ID
+		}
 	}
 	syscall.Sethostname([]byte(c.Config.Hostname))
 }
