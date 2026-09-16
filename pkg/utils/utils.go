@@ -9,13 +9,10 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"syscall"
 	"text/template"
 
-	"github.com/pkg/errors"
 	"github.com/rs/xid"
 	"github.com/rs/zerolog/log"
-	"golang.org/x/sys/unix"
 
 	"github.com/ntk148v/koker/pkg/constants"
 )
@@ -95,6 +92,13 @@ func Extract(tarball, target string) error {
 		tarReader = tar.NewReader(reader)
 	}
 
+	type hardlink struct {
+		oldname string
+		newname string
+	}
+	var hardlinks []hardlink
+	cleanTarget := filepath.Clean(target)
+
 	for {
 		header, err := tarReader.Next()
 		if err == io.EOF {
@@ -103,49 +107,84 @@ func Extract(tarball, target string) error {
 			return err
 		}
 
-		path := filepath.Join(target, header.Name)
+		path := filepath.Join(cleanTarget, header.Name)
+		cleanPath := filepath.Clean(path)
+		if !strings.HasPrefix(cleanPath, cleanTarget+string(filepath.Separator)) && cleanPath != cleanTarget {
+			return fmt.Errorf("illegal file path in archive: %s", header.Name)
+		}
+
 		info := header.FileInfo()
 
 		switch header.Typeflag {
 		case tar.TypeDir:
-			if err = os.MkdirAll(path, info.Mode()); err != nil {
+			if err = os.MkdirAll(cleanPath, info.Mode()); err != nil {
 				return err
 			}
 			continue
 		case tar.TypeReg:
-			file, err := os.OpenFile(path, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, info.Mode())
+			if err = os.MkdirAll(filepath.Dir(cleanPath), 0755); err != nil {
+				return err
+			}
+			file, err := os.OpenFile(cleanPath, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, info.Mode())
 			if err != nil {
 				return err
 			}
-			defer file.Close()
 			_, err = io.Copy(file, tarReader)
+			file.Close()
 			if err != nil {
 				return err
 			}
 		case tar.TypeLink:
-			link := filepath.Join(target, header.Name)
-			linkTarget := filepath.Join(target, header.Linkname)
-			// lazy link creation. just to make sure all files are available
-			defer os.Link(link, linkTarget)
+			targetPath := filepath.Join(cleanTarget, header.Linkname)
+			cleanTargetPath := filepath.Clean(targetPath)
+			if !strings.HasPrefix(cleanTargetPath, cleanTarget+string(filepath.Separator)) && cleanTargetPath != cleanTarget {
+				return fmt.Errorf("illegal link target in archive: %s", header.Linkname)
+			}
+			// Queue hard link creation after files are extracted
+			hardlinks = append(hardlinks, hardlink{
+				oldname: cleanTargetPath,
+				newname: cleanPath,
+			})
 		case tar.TypeSymlink:
-			linkPath := filepath.Join(target, header.Name)
-			if err := os.Symlink(header.Linkname, linkPath); err != nil {
+			if err := os.MkdirAll(filepath.Dir(cleanPath), 0755); err != nil {
+				return err
+			}
+			if err := os.Symlink(header.Linkname, cleanPath); err != nil {
 				if !os.IsExist(err) {
 					return err
 				}
 			}
 		}
 	}
+
+	for _, hl := range hardlinks {
+		if err := os.MkdirAll(filepath.Dir(hl.newname), 0755); err != nil {
+			return err
+		}
+		if err := os.Link(hl.oldname, hl.newname); err != nil {
+			if !os.IsExist(err) {
+				return err
+			}
+		}
+	}
 	return nil
 }
 
-// GenIPAddress generates ip address randomly (and dummy).
-// NOTE(kiennt26): It doesn't check this IP
-// address is used or not, as I assume there is just only 1 container
-// run at time.
+// GenIPAddress generates ip address randomly in 172.69.0.0/16.
+// It avoids the bridge gateway IP 172.69.0.1.
 func GenIPAddress() string {
-	// Hardcode
-	return fmt.Sprintf("%s%d.%d/16", constants.KokerBridgeIPPrefix, rand.Intn(254), rand.Intn(254))
+	octet3 := rand.Intn(256)
+	var octet4 int
+	if octet3 == 0 {
+		// Avoid 0 (network) and 1 (bridge gateway)
+		octet4 = rand.Intn(253) + 2
+	} else if octet3 == 255 {
+		// Avoid 255 (broadcast)
+		octet4 = rand.Intn(254) + 1
+	} else {
+		octet4 = rand.Intn(254) + 1
+	}
+	return fmt.Sprintf("%s%d.%d/16", constants.KokerBridgeIPPrefix, octet3, octet4)
 }
 
 func CmdAndArgs(args []string) (command string, argv []string) {
@@ -165,39 +204,4 @@ func GenTemplate(name, tempStr string, input any) error {
 		return err
 	}
 	return temp.Execute(os.Stdout, input)
-}
-
-// SetNamespace calls setns syscall for set of flags. It changes
-// current process namespace to namespace of another process which
-// can be specified by pid.
-//
-// NOTE: A process may not be reassociated with a new mount namespace
-// if it is multi-threaded. Changing the mount namespace requires that
-// the caller possess both CAP_SYS_CHROOT and CAP_SYS_ADMIN capabilities
-// in its own user namespace and CAP_SYS_ADMIN in the target mount namespace.
-func SetNamespace(pid string, flag int) error {
-	nsBase := filepath.Join("/proc", pid, "ns")
-	ns := map[int]string{
-		syscall.CLONE_NEWIPC: "ipc",
-		syscall.CLONE_NEWNS:  "mnt",
-		syscall.CLONE_NEWNET: "net",
-		syscall.CLONE_NEWPID: "pid",
-		syscall.CLONE_NEWUTS: "uts",
-	}
-
-	for k, v := range ns {
-		if flag&k == 0 {
-			continue
-		}
-		nsFile, err := os.Open(filepath.Join(nsBase, v))
-		if err != nil {
-			return errors.Wrapf(err, "can't open %s", nsFile)
-		}
-
-		if err := unix.Setns(int(nsFile.Fd()), k); err != nil {
-			return errors.Wrapf(err, "can't setns to %s", v)
-		}
-	}
-
-	return nil
 }
