@@ -29,14 +29,6 @@ func main() {
 	// colorized output because I like it!
 	log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stderr})
 
-	if os.Getuid() != 0 {
-		log.Fatal().Msg("You need root privileges to run `koker`")
-	}
-
-	if err := utils.InitKokerDirs(); err != nil {
-		log.Fatal().Err(err).Msg("Unable to create requisite directories")
-	}
-
 	app := &cli.App{
 		Name:                 "koker",
 		Version:              version,
@@ -63,6 +55,14 @@ func main() {
 			},
 		},
 		Before: func(ctx *cli.Context) error {
+			if os.Getuid() != 0 {
+				return errors.New("you need root privileges to run `koker`")
+			}
+
+			if err := utils.InitKokerDirs(); err != nil {
+				return errors.Wrap(err, "unable to create requisite directories")
+			}
+
 			quiet := ctx.Bool("quiet")
 			if quiet {
 				zerolog.SetGlobalLevel(zerolog.Disabled)
@@ -75,7 +75,7 @@ func main() {
 
 			// Load image registry
 			if err := images.LoadRepository(); err != nil {
-				log.Fatal().Err(err).Msg("Unable to load image registry")
+				return errors.Wrap(err, "unable to load image registry")
 			}
 
 			return nil
