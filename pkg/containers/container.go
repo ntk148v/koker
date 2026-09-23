@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 	"syscall"
@@ -185,7 +186,11 @@ func (c *Container) RunChild(cmdArgs []string, hostname string, mem, swap, pids 
 func (c *Container) ExecuteCommand(cmdArgs []string, child bool) error {
 	c.log.Info().Msg("Execute command")
 	if child {
-		// Set network namespace
+		// Set network namespace. Lock the OS thread so the namespace switch
+		// (setns) and the child process spawned below by cmd.Run() share the
+		// same thread — otherwise the container would inherit the root netns.
+		runtime.LockOSThread()
+		defer runtime.UnlockOSThread()
 		unset, err := c.setNetworkNamespace()
 		if err != nil {
 			return errors.Wrap(err, "unable to set network namespace")
@@ -435,7 +440,12 @@ func (c *Container) setupNetwork(bridge string) (filesystem.Unmounter, error) {
 		return unmount, err
 	}
 
-	// Change current network namespace to setup the veth
+	// Change current network namespace to setup the veth.
+	// Lock the OS thread: setns is per-thread, and Go may otherwise schedule the
+	// netlink calls below on a different thread still in the root namespace,
+	// leaking eth0/its route into the host instead of the container netns.
+	runtime.LockOSThread()
+	defer runtime.UnlockOSThread()
 	unset, err := network.SetNetNSByFile(nsMountTarget)
 	if err != nil {
 		return unmount, err
